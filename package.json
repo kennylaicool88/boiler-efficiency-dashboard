@@ -1,0 +1,9 @@
+{
+  "name": "boiler-efficiency-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Boiler efficiency dashboard with a Vercel-hosted InfluxDB live data API.",
+  "dependencies": {
+    "@influxdata/influxdb-client": "^1.35.0"
+  }
+}

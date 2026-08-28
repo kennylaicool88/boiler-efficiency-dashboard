@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boiler Efficiency Monitor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root{
+  --bg-deep:#0A1826;
+  --bg-panel:#122840;
+  --bg-panel-alt:#0F2032;
+  --line:#254B6B;
+  --line-soft:#1B3A54;
+  --ember:#E8871E;
+  --ember-dim:#8A5417;
+  --steam:#7FC9D9;
+  --steam-dim:#3D6B75;
+  --text-hi:#EAF2F5;
+  --text-mid:#9BB4C7;
+  --text-low:#5F7A8F;
+  --ok:#4FAE7C;
+  --warn:#E8871E;
+  --bad:#D64545;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--bg-deep);
+  color:var(--text-hi);
+  font-family:'Inter',sans-serif;
+  padding:28px 20px 60px;
+}
+.wrap{max-width:1180px;margin:0 auto;}
+
+.topbar{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  border-bottom:2px solid var(--line);
+  padding-bottom:16px;margin-bottom:24px;
+  flex-wrap:wrap;gap:12px;
+}
+.topbar .eyebrow{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;letter-spacing:.14em;color:var(--ember);
+  text-transform:uppercase;margin-bottom:4px;
+}
+.topbar h1{
+  font-family:'Oswald',sans-serif;font-weight:600;
+  font-size:30px;letter-spacing:.01em;text-transform:uppercase;
+  color:var(--text-hi);
+}
+.topbar .meta{
+  font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-mid);
+  text-align:right;line-height:1.6;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns: 320px 1fr;
+  gap:18px;
+  align-items:start;
+}
+@media(max-width:980px){ .grid{grid-template-columns:1fr;} #turbineGridWrap{grid-template-columns:1fr;} }
+
+.panel{
+  background:var(--bg-panel);
+  border:1px solid var(--line);
+  border-radius:3px;
+  padding:18px 18px 20px;
+}
+.panel-head{
+  display:flex;align-items:center;gap:8px;
+  font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--steam);
+  border-bottom:1px solid var(--line-soft);padding-bottom:10px;margin-bottom:14px;
+}
+.panel-head .dot{width:7px;height:7px;border-radius:50%;background:var(--steam);flex-shrink:0;}
+.panel-head .spacer{flex:1;}
+.panel-head a{
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.02em;
+  text-transform:none;color:var(--text-mid);text-decoration:none;
+  border-bottom:1px dotted var(--text-low);
+}
+.panel-head a:hover{color:var(--steam);border-bottom-color:var(--steam);}
+
+.field{margin-bottom:13px;}
+.field:last-child{margin-bottom:0;}
+.field label{
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-size:12px;color:var(--text-mid);margin-bottom:5px;
+}
+.field label .unit{color:var(--text-low);font-family:'JetBrains Mono',monospace;font-size:10.5px;}
+.field input[type=number],.field input[type=text]{
+  width:100%;background:var(--bg-panel-alt);border:1px solid var(--line);
+  color:var(--text-hi);font-family:'JetBrains Mono',monospace;font-size:14px;
+  padding:8px 10px;border-radius:2px;outline:none;
+}
+.field input[type=number]:focus,.field input[type=text]:focus{border-color:var(--steam);}
+.field input[type=range]{
+  width:100%;accent-color:var(--ember);height:4px;
+}
+.field .rangeval{
+  font-family:'JetBrains Mono',monospace;color:var(--ember);font-size:12px;
+}
+.readout-row{
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+  padding:6px 0;border-top:1px solid var(--line-soft);
+  color:var(--text-mid);
+}
+.readout-row .val{color:var(--text-hi);font-weight:700;}
+.readouts{margin-top:14px;}
+
+.center-col{display:flex;flex-direction:column;gap:18px;}
+
+.gauge-panel{
+  background:var(--bg-panel);border:1px solid var(--line);border-radius:3px;
+  padding:20px 18px 16px;text-align:center;
+}
+.gauge-label{
+  font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--steam);margin-bottom:6px;
+}
+.gauge-sub{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text-low);margin-bottom:6px;}
+
+.metrics-strip{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;
+}
+.metric-card{
+  background:var(--bg-panel-alt);border:1px solid var(--line-soft);border-radius:3px;
+  padding:12px 14px;
+}
+.metric-card .m-label{font-size:10.5px;color:var(--text-low);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+.metric-card .m-val{font-family:'JetBrains Mono',monospace;font-size:19px;color:var(--text-hi);font-weight:700;}
+.metric-card .m-val .m-unit{font-size:11px;color:var(--text-mid);font-weight:400;margin-left:3px;}
+
+.delta-note{
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);
+  font-size:11.5px;color:var(--text-mid);line-height:1.5;
+}
+.delta-note b{color:var(--text-hi);}
+
+.loss-bar-wrap{margin-top:4px;}
+.loss-stack{
+  display:flex;width:100%;height:26px;border-radius:2px;overflow:hidden;
+  border:1px solid var(--line-soft);
+}
+.loss-seg{height:100%;position:relative;}
+.loss-legend{
+  display:flex;flex-direction:column;gap:6px;margin-top:12px;
+}
+.loss-legend-row{
+  display:flex;align-items:center;gap:8px;font-size:11.5px;
+  font-family:'JetBrains Mono',monospace;color:var(--text-mid);
+}
+.loss-legend-row .swatch{width:9px;height:9px;flex-shrink:0;border-radius:1px;}
+.loss-legend-row .lname{flex:1;color:var(--text-mid);font-family:'Inter',sans-serif;font-size:12px;}
+.loss-legend-row .lval{color:var(--text-hi);font-weight:700;width:46px;text-align:right;}
+
+.assumptions{
+  margin-top:18px;padding-top:14px;border-top:1px solid var(--line);
+  font-size:11px;color:var(--text-low);line-height:1.7;
+}
+.assumptions b{color:var(--text-mid);}
+
+hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div>
+      <div class="eyebrow">Steam &amp; Combustion Performance</div>
+      <h1>Boiler Efficiency Monitor</h1>
+    </div>
+    <div class="meta">
+      FIBRE + SHELL FIRED BOILER<br>
+      DIRECT METHOD &amp; CHP PERFORMANCE
+    </div>
+  </div>
+
+  <div class="panel" id="liveDataPanel" style="margin-bottom:18px;">
+    <div class="panel-head">
+      <span class="dot" id="liveDot" style="background:var(--text-low);"></span>Live Data Feed (InfluxDB)
+      <span class="spacer"></span>
+      <a href="connect.html">Connection status &amp; setup →</a>
+    </div>
+    <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:end;">
+      <div class="field" style="margin-bottom:0;">
+        <label>Live data endpoint</label>
+        <input type="text" id="proxyUrl" placeholder="/api/live-data" value="/api/live-data">
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Poll interval</label>
+        <select id="pollInterval" style="width:100%;background:var(--bg-panel-alt);border:1px solid var(--line);color:var(--text-hi);font-family:'JetBrains Mono',monospace;font-size:14px;padding:8px 10px;border-radius:2px;">
+          <option value="10">10s</option>
+          <option value="30" selected>30s</option>
+          <option value="60">60s</option>
+        </select>
+      </div>
+      <button id="liveToggleBtn" style="background:var(--ember);color:var(--bg-deep);border:none;font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:12.5px;padding:9px 18px;border-radius:2px;cursor:pointer;height:36px;">Connect</button>
+    </div>
+    <div id="liveStatus" style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--text-low);">
+      Not connected — steam output, steam pressure and feedwater temperature can be filled automatically once connected; every other field (fuel, turbine, exhaust) stays manual.
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <div class="col-left">
+      <div class="panel">
+        <div class="panel-head"><span class="dot"></span>Fuel Supply</div>
+        <div class="field">
+          <label>FFB throughput <span class="unit">t/hr</span></label>
+          <input type="number" id="ffb" value="60" step="1" min="0">
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-low);text-transform:uppercase;letter-spacing:.08em;margin:2px 0 8px;">Rule-of-thumb baselines (editable)</div>
+        <div class="field">
+          <label>Mesocarp fibre yield <span class="unit">% of FFB</span></label>
+          <input type="number" id="fibrePct" value="12" step="0.5" min="0">
+        </div>
+        <div class="field">
+          <label>Fibre GCV as-fired <span class="unit">kJ/kg, 35–40% MC</span></label>
+          <input type="number" id="fibreGcv" value="10750" step="50" min="0">
+        </div>
+        <div class="field">
+          <label>Palm kernel shell yield <span class="unit">% of FFB</span></label>
+          <input type="number" id="shellPct" value="5" step="0.5" min="0">
+        </div>
+        <div class="field">
+          <label>Shell GCV as-fired <span class="unit">kJ/kg, 15–20% MC</span></label>
+          <input type="number" id="shellGcv" value="15500" step="50" min="0">
+        </div>
+        <div class="field">
+          <label>Shredded EFB yield <span class="unit">% of FFB</span></label>
+          <input type="number" id="efbPct" value="0" step="0.5" min="0">
+        </div>
+        <div class="field">
+          <label>EFB GCV as-fired <span class="unit">kJ/kg, 45–50% MC</span></label>
+          <input type="number" id="efbGcv" value="8000" step="50" min="0">
+        </div>
+        <div class="readouts">
+          <div class="readout-row"><span>Fibre rate</span><span class="val" id="out-fibreRate">–</span></div>
+          <div class="readout-row"><span>Shell rate</span><span class="val" id="out-shellRate">–</span></div>
+          <div class="readout-row"><span>EFB rate</span><span class="val" id="out-efbRate">–</span></div>
+          <div class="readout-row"><span>Total fuel rate</span><span class="val" id="out-fuelRate">–</span></div>
+          <div class="readout-row"><span>Blended GCV as-fired</span><span class="val" id="out-gcvWet">–</span></div>
+        </div>
+      </div>
+
+      <div style="height:16px;"></div>
+
+      <div class="panel">
+        <div class="panel-head"><span class="dot"></span>Steam &amp; Feedwater</div>
+        <div class="field">
+          <label>Steam output <span class="unit">t/hr</span></label>
+          <input type="number" id="steamRate" value="25" step="0.5" min="0">
+        </div>
+        <div class="field">
+          <label>Steam pressure (saturated) <span class="unit">bar g</span></label>
+          <input type="number" id="steamPressure" value="20" step="0.5" min="0.5" max="40">
+        </div>
+        <div class="field">
+          <label>Feedwater temperature <span class="unit">°C</span></label>
+          <input type="number" id="feedTemp" value="90" step="1" min="0" max="150">
+        </div>
+        <div class="readouts">
+          <div class="readout-row"><span>Steam enthalpy h_g</span><span class="val" id="out-hSteam">–</span></div>
+          <div class="readout-row"><span>Feedwater enthalpy h_f</span><span class="val" id="out-hFeed">–</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="center-col">
+      <div class="gauge-panel">
+        <div class="gauge-label">Direct method efficiency</div>
+        <div class="gauge-sub">steam heat output / fuel heat input</div>
+        <svg id="gauge" viewBox="0 0 300 175" style="max-width:320px;width:100%;"></svg>
+      </div>
+
+      <div class="metrics-strip">
+        <div class="metric-card">
+          <div class="m-label">Steam heat duty</div>
+          <div class="m-val" id="m-steamDuty">–<span class="m-unit">MW</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Fuel heat input</div>
+          <div class="m-val" id="m-fuelDuty">–<span class="m-unit">MW</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Fuel rate</div>
+          <div class="m-val" id="m-fuelRate">–<span class="m-unit">t/hr</span></div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="panel" style="margin-top:18px;">
+    <div class="panel-head"><span class="dot"></span>Turbine &amp; Cogeneration (Back-Pressure)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;" id="turbineGridWrap">
+      <div>
+        <div class="field">
+          <label>Electrical power output <span class="unit">kW, generator meter</span></label>
+          <input type="number" id="elecOutput" value="1200" step="10" min="0">
+        </div>
+        <div class="field">
+          <label>Turbine exhaust / process steam pressure <span class="unit">bar g</span></label>
+          <input type="number" id="exhaustPressure" value="3" step="0.5" min="0.5" max="15">
+        </div>
+        <div class="readouts">
+          <div class="readout-row"><span>Exhaust steam enthalpy h₂</span><span class="val" id="out-hExhaust">–</span></div>
+          <div class="readout-row"><span>Enthalpy drop across turbine</span><span class="val" id="out-turbineDrop">–</span></div>
+          <div class="readout-row"><span>Turbine + generator conversion</span><span class="val" id="out-turbineEff">–</span></div>
+          <div class="readout-row"><span>Specific steam consumption</span><span class="val" id="out-ssc">–</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="metrics-strip" style="grid-template-columns:1fr 1fr;">
+          <div class="metric-card">
+            <div class="m-label">Electrical output</div>
+            <div class="m-val" id="m-elecOutput">–<span class="m-unit">MW</span></div>
+          </div>
+          <div class="metric-card">
+            <div class="m-label">Useful process heat</div>
+            <div class="m-val" id="m-processHeat">–<span class="m-unit">MW</span></div>
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <div class="compare-row">
+            <div class="compare-tag">Boiler</div>
+            <div class="compare-bar-track"><div class="compare-bar-fill" id="bar-boilerEff2" style="background:var(--steam);width:0%;"></div></div>
+            <div class="compare-num" id="num-boilerEff2" style="color:var(--steam);">–</div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-tag">Overall CHP</div>
+            <div class="compare-bar-track"><div class="compare-bar-fill" id="bar-chp" style="background:var(--ok);width:0%;"></div></div>
+            <div class="compare-num" id="num-chp" style="color:var(--ok);">–</div>
+          </div>
+        </div>
+        <div class="delta-note" id="chp-note">–</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="assumptions">
+    <b>Assumptions</b> — fuel GCV uses standard operating-baseline (rule-of-thumb) as-fired values per fuel type: mesocarp fibre 10,000–11,500 kJ/kg at 35–40% moisture, palm kernel shell 14,500–16,500 kJ/kg at 15–20% moisture, shredded EFB 7,500–8,500 kJ/kg at 45–50% moisture — midpoints pre-filled, editable if you have a lab result. Combined fuel GCV is the mass-weighted blend of whichever streams are in use. Steam assumed saturated at the stated pressure (interpolated from steam tables); feedwater enthalpy from Cp = 4.186 kJ/kg·K. Fibre/shell/EFB yield ratios vary with fruit variety, press and depericarper efficiency — treat fuel-mass estimates as indicative, not metered.
+    <br><br>
+    <b>Turbine &amp; cogeneration</b> — exhaust (process) steam is also assumed saturated at the stated back-pressure, so turbine + generator conversion is read off actual meter output against the enthalpy drop rather than a full isentropic/entropy calculation — adequate for a rule-of-thumb estimate, not a substitute for a proper turbine heat balance. Assumes all boiler steam passes through the turbine before reaching process (no direct let-down/bypass line). Useful process heat values the exhaust steam at its own enthalpy against feedwater, same basis as the boiler steam duty — it does not net off any condensate return, since palm oil mill sterilizers typically consume steam directly rather than returning condensate.
+  </div>
+
+</div>
+
+<script>
+function $(id){return document.getElementById(id);}
+function fmt(n,d){ if(!isFinite(n)) return '–'; return n.toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d}); }
+
+var steamTable = [
+  [1,2675],[2,2707],[3,2725],[5,2748],[7,2764],[10,2778],[13,2787],
+  [15,2792],[17,2795],[20,2799],[22,2800],[25,2801],[30,2803],[35,2802],[40,2801]
+];
+function hgAt(p){
+  if(p<=steamTable[0][0]) return steamTable[0][1];
+  if(p>=steamTable[steamTable.length-1][0]) return steamTable[steamTable.length-1][1];
+  for(var i=0;i<steamTable.length-1;i++){
+    var a=steamTable[i], b=steamTable[i+1];
+    if(p>=a[0] && p<=b[0]){
+      var f=(p-a[0])/(b[0]-a[0]);
+      return a[1] + f*(b[1]-a[1]);
+    }
+  }
+  return steamTable[steamTable.length-1][1];
+}
+
+function drawGauge(pct){
+  var svg = $('gauge');
+  var cx=150, cy=150, r=120;
+  var clamped = Math.max(0, Math.min(100, pct));
+  var startAngle = 180, endAngle = 0;
+  function polar(cx,cy,r,angleDeg){
+    var a = angleDeg * Math.PI/180;
+    return [cx + r*Math.cos(a), cy - r*Math.sin(a)];
+  }
+  function arcPath(r1,fromPct,toPct){
+    var a1 = 180 - fromPct/100*180;
+    var a2 = 180 - toPct/100*180;
+    var p1 = polar(cx,cy,r1,a1);
+    var p2 = polar(cx,cy,r1,a2);
+    var large = (a1-a2) > 180 ? 1:0;
+    return 'M '+p1[0]+' '+p1[1]+' A '+r1+' '+r1+' 0 '+large+' 1 '+p2[0]+' '+p2[1];
+  }
+  var bands = [
+    {from:0,to:55,color:'#D64545'},
+    {from:55,to:68,color:'#E8871E'},
+    {from:68,to:100,color:'#4FAE7C'}
+  ];
+  var needleAngle = 180 - clamped/100*180;
+  var needleTip = polar(cx,cy,r-14,needleAngle);
+
+  var svgHtml = '';
+  bands.forEach(function(b){
+    svgHtml += '<path d="'+arcPath(r,b.from,b.to)+'" stroke="'+b.color+'" stroke-width="14" fill="none" opacity="0.85" stroke-linecap="butt"/>';
+  });
+  svgHtml += '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleTip[0]+'" y2="'+needleTip[1]+'" stroke="#EAF2F5" stroke-width="3" stroke-linecap="round"/>';
+  svgHtml += '<circle cx="'+cx+'" cy="'+cy+'" r="7" fill="#EAF2F5"/>';
+  svgHtml += '<text x="'+cx+'" y="'+(cy-30)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="34" font-weight="700" fill="#EAF2F5">'+ (isFinite(pct)? pct.toFixed(1):'–') +'%</text>';
+  [0,25,50,75,100].forEach(function(t){
+    var a = 180 - t/100*180;
+    var p = polar(cx,cy,r+20,a);
+    svgHtml += '<text x="'+p[0]+'" y="'+(p[1]+4)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#5F7A8F">'+t+'</text>';
+  });
+  svg.innerHTML = svgHtml;
+}
+
+function recalc(){
+  var ffb = parseFloat($('ffb').value)||0;
+  var fibrePct = parseFloat($('fibrePct').value)||0;
+  var fibreGcv = parseFloat($('fibreGcv').value)||0;
+  var shellPct = parseFloat($('shellPct').value)||0;
+  var shellGcv = parseFloat($('shellGcv').value)||0;
+  var efbPct = parseFloat($('efbPct').value)||0;
+  var efbGcv = parseFloat($('efbGcv').value)||0;
+
+  var steamRate = parseFloat($('steamRate').value)||0;
+  var steamPressure = parseFloat($('steamPressure').value)||0;
+  var feedTemp = parseFloat($('feedTemp').value)||0;
+
+  var fibreRateT = ffb*fibrePct/100;
+  var shellRateT = ffb*shellPct/100;
+  var efbRateT = ffb*efbPct/100;
+  var fuelRateT = fibreRateT+shellRateT+efbRateT;
+  var fuelRateKg = fuelRateT*1000;
+
+  var fuelHeatKW_check = (fibreRateT*1000*fibreGcv + shellRateT*1000*shellGcv + efbRateT*1000*efbGcv)/3600;
+  var gcvWet = fuelRateKg>0 ? (fuelHeatKW_check*3600/fuelRateKg) : 0;
+
+  var fibreMC=37.5, shellMC=17.5, efbMC=47.5;
+  var blendedMoisture = fuelRateT>0 ? ((fibreRateT*fibreMC+shellRateT*shellMC+efbRateT*efbMC)/fuelRateT) : 0;
+
+  $('out-fibreRate').textContent = fmt(fibreRateT,2)+' t/hr';
+  $('out-shellRate').textContent = fmt(shellRateT,2)+' t/hr';
+  $('out-efbRate').textContent = fmt(efbRateT,2)+' t/hr';
+
+  var hSteam = hgAt(steamPressure);
+  var hFeed = 4.186*feedTemp;
+
+  var steamRateKg = steamRate*1000;
+  var steamDutyKW = steamRateKg*(hSteam-hFeed)/3600;
+  var fuelDutyKW = fuelRateKg*gcvWet/3600;
+
+  var directEff = fuelDutyKW>0 ? (steamDutyKW/fuelDutyKW*100) : 0;
+
+  $('out-fuelRate').textContent = fmt(fuelRateT,2)+' t/hr';
+  $('out-gcvWet').textContent = fmt(gcvWet,0)+' kJ/kg';
+  $('out-hSteam').textContent = fmt(hSteam,0)+' kJ/kg';
+  $('out-hFeed').textContent = fmt(hFeed,0)+' kJ/kg';
+  $('m-steamDuty').innerHTML = fmt(steamDutyKW/1000,2)+'<span class="m-unit">MW</span>';
+  $('m-fuelDuty').innerHTML = fmt(fuelDutyKW/1000,2)+'<span class="m-unit">MW</span>';
+  $('m-fuelRate').innerHTML = fmt(fuelRateT,2)+'<span class="m-unit">t/hr</span>';
+
+  drawGauge(directEff);
+
+  var elecOutput = parseFloat($('elecOutput').value)||0;
+  var exhaustPressure = parseFloat($('exhaustPressure').value)||0;
+  var hExhaust = hgAt(exhaustPressure);
+  var turbineDrop = hSteam-hExhaust;
+  var turbineHeatDropKW = steamRateKg*turbineDrop/3600;
+  var turbineEff = turbineHeatDropKW>0 ? (elecOutput/turbineHeatDropKW*100) : 0;
+  var ssc = elecOutput>0 ? (steamRateKg/elecOutput) : 0;
+  var processHeatKW = steamRateKg*(hExhaust-hFeed)/3600;
+
+  $('out-hExhaust').textContent = fmt(hExhaust,0)+' kJ/kg';
+  $('out-turbineDrop').textContent = fmt(turbineDrop,0)+' kJ/kg';
+  $('out-turbineEff').textContent = fmt(turbineEff,1)+'%';
+  $('out-ssc').textContent = fmt(ssc,2)+' kg/kWh';
+  $('m-elecOutput').innerHTML = fmt(elecOutput/1000,2)+'<span class="m-unit">MW</span>';
+  $('m-processHeat').innerHTML = fmt(processHeatKW/1000,2)+'<span class="m-unit">MW</span>';
+
+  var chpEff = fuelDutyKW>0 ? ((elecOutput+processHeatKW)/fuelDutyKW*100) : 0;
+  $('bar-boilerEff2').style.width = Math.min(100,directEff)+'%';
+  $('bar-chp').style.width = Math.min(100,chpEff)+'%';
+  $('num-boilerEff2').textContent = directEff.toFixed(1)+'%';
+  $('num-chp').textContent = chpEff.toFixed(1)+'%';
+
+  var chpNote;
+  if(chpEff > directEff){
+    chpNote = '<b>+'+(chpEff-directEff).toFixed(1)+' points over boiler efficiency alone.</b> Because exhaust steam still delivers process heat to the sterilizer instead of being condensed away, the cogeneration setup captures extra value the boiler-only number misses.';
+  } else {
+    chpNote = 'Overall CHP efficiency is below boiler efficiency — check that electrical output and process pressure figures reflect actual operating conditions.';
+  }
+  $('chp-note').innerHTML = chpNote;
+}
+
+var allInputs = document.querySelectorAll('input');
+allInputs.forEach(function(inp){ inp.addEventListener('input', recalc); });
+recalc();
+
+// ---- Live data polling (InfluxDB, via /api/live-data on this same Vercel deployment) ----
+var liveTimer = null;
+var liveConnected = false;
+var LIVE_FIELD_IDS = ['steamRate','steamPressure','feedTemp'];
+
+function setLiveStatus(msg, ok){
+  $('liveStatus').textContent = msg;
+  $('liveDot').style.background = ok===true ? 'var(--ok)' : (ok===false ? 'var(--bad)' : 'var(--text-low)');
+}
+
+function pollLiveData(){
+  var url = $('proxyUrl').value.trim();
+  if(!url){ setLiveStatus('No live data endpoint entered.', false); return; }
+  fetch(url).then(function(r){
+    if(!r.ok) return r.json().then(function(body){ throw new Error((body&&body.error)||('HTTP '+r.status)); });
+    return r.json();
+  }).then(function(data){
+    LIVE_FIELD_IDS.forEach(function(id){
+      if(data[id] !== undefined && $(id)){
+        $(id).value = data[id];
+      }
+    });
+    recalc();
+    var stamp = data._timestamp ? new Date(data._timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+    var foundInfo = (data._fieldsFound!==undefined && data._fieldsExpected!==undefined) ? (' — '+data._fieldsFound+'/'+data._fieldsExpected+' tags matched') : '';
+    setLiveStatus('Connected — last updated '+stamp+foundInfo+'.', true);
+  }).catch(function(err){
+    setLiveStatus('Fetch failed: '+err.message+'. See connection status & setup for details.', false);
+  });
+}
+
+$('liveToggleBtn').addEventListener('click', function(){
+  if(liveConnected){
+    clearInterval(liveTimer);
+    liveConnected = false;
+    $('liveToggleBtn').textContent = 'Connect';
+    $('liveToggleBtn').style.background = 'var(--ember)';
+    setLiveStatus('Disconnected.', null);
+  } else {
+    var url = $('proxyUrl').value.trim();
+    if(!url){ setLiveStatus('Enter a live data endpoint first.', false); return; }
+    liveConnected = true;
+    $('liveToggleBtn').textContent = 'Disconnect';
+    $('liveToggleBtn').style.background = 'var(--bad)';
+    pollLiveData();
+    var seconds = parseInt($('pollInterval').value,10)||30;
+    liveTimer = setInterval(pollLiveData, seconds*1000);
+  }
+});
+
+$('pollInterval').addEventListener('change', function(){
+  if(liveConnected){
+    clearInterval(liveTimer);
+    var seconds = parseInt($('pollInterval').value,10)||30;
+    liveTimer = setInterval(pollLiveData, seconds*1000);
+  }
+});
+</script>
+</body>
+</html>

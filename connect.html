@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InfluxDB Connection — Boiler Efficiency Monitor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
+:root{
+  --bg-deep:#0A1826;
+  --bg-panel:#122840;
+  --bg-panel-alt:#0F2032;
+  --line:#254B6B;
+  --line-soft:#1B3A54;
+  --ember:#E8871E;
+  --steam:#7FC9D9;
+  --text-hi:#EAF2F5;
+  --text-mid:#9BB4C7;
+  --text-low:#5F7A8F;
+  --ok:#4FAE7C;
+  --bad:#D64545;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg-deep);color:var(--text-hi);font-family:'Inter',sans-serif;padding:28px 20px 60px;}
+.wrap{max-width:760px;margin:0 auto;}
+.topbar{border-bottom:2px solid var(--line);padding-bottom:16px;margin-bottom:24px;}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--ember);text-transform:uppercase;margin-bottom:4px;}
+h1{font-family:'Oswald',sans-serif;font-weight:600;font-size:26px;letter-spacing:.01em;text-transform:uppercase;}
+a.back{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--text-mid);text-decoration:none;border-bottom:1px dotted var(--text-low);}
+a.back:hover{color:var(--steam);border-bottom-color:var(--steam);}
+.panel{background:var(--bg-panel);border:1px solid var(--line);border-radius:3px;padding:18px 18px 20px;margin-bottom:18px;}
+.panel-head{display:flex;align-items:center;gap:8px;font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--steam);border-bottom:1px solid var(--line-soft);padding-bottom:10px;margin-bottom:14px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--text-low);flex-shrink:0;}
+.status-row{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:7px 0;border-top:1px solid var(--line-soft);color:var(--text-mid);}
+.status-row:first-child{border-top:none;}
+.status-row .v{color:var(--text-hi);font-weight:700;}
+.status-row .v.ok{color:var(--ok);}
+.status-row .v.bad{color:var(--bad);}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:12px;margin-top:6px;}
+th,td{text-align:left;padding:7px 8px;border-top:1px solid var(--line-soft);color:var(--text-mid);}
+th{color:var(--text-low);text-transform:uppercase;font-size:10.5px;letter-spacing:.06em;}
+td.val{color:var(--text-hi);}
+button{background:var(--ember);color:var(--bg-deep);border:none;font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:12.5px;padding:9px 18px;border-radius:2px;cursor:pointer;}
+p{font-size:12.5px;color:var(--text-mid);line-height:1.7;margin-bottom:10px;}
+p:last-child{margin-bottom:0;}
+code{background:var(--bg-panel-alt);border:1px solid var(--line-soft);border-radius:2px;padding:1px 5px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--steam);}
+ol{margin-left:18px;font-size:12.5px;color:var(--text-mid);line-height:1.9;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="eyebrow">Boiler Efficiency Monitor</div>
+    <h1>InfluxDB Connection</h1>
+  </div>
+
+  <p><a class="back" href="index.html">← Back to dashboard</a></p>
+  <br>
+
+  <div class="panel">
+    <div class="panel-head"><span class="dot" id="statusDot"></span>Connection Status</div>
+    <div class="status-row"><span>Environment variables configured</span><span class="v" id="s-configured">checking…</span></div>
+    <div class="status-row"><span>InfluxDB reachable</span><span class="v" id="s-reachable">checking…</span></div>
+    <div class="status-row"><span>Org</span><span class="v" id="s-org">–</span></div>
+    <div class="status-row"><span>Bucket</span><span class="v" id="s-bucket">–</span></div>
+    <div style="margin-top:14px;"><button id="checkBtn">Check again</button></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><span class="dot" style="background:var(--steam);"></span>Mapped Fields</div>
+    <table>
+      <thead><tr><th>Dashboard field</th><th>Measurement</th><th>Field</th><th>Unit</th></tr></thead>
+      <tbody id="fieldRows"><tr><td colspan="4">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><span class="dot" style="background:var(--steam);"></span>Setup</div>
+    <p>The InfluxDB token never touches this page or the dashboard — it lives only as a server-side environment variable on Vercel, read by the <code>/api/live-data</code> function.</p>
+    <ol>
+      <li>In the Vercel dashboard, open this project → <b>Settings → Environment Variables</b>.</li>
+      <li>Add <code>INFLUX_URL</code>, <code>INFLUX_TOKEN</code> (read-only token), <code>INFLUX_ORG</code>, <code>INFLUX_BUCKET</code>.</li>
+      <li>Redeploy. This page will show <b>reachable</b> once it's working.</li>
+      <li>If field names don't match your InfluxDB tags, edit <code>api/_fieldMap.js</code> in the repo with the real measurement/field names, then push — Vercel redeploys automatically.</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+function $(id){return document.getElementById(id);}
+
+function render(data){
+  $('s-configured').textContent = data.configured ? 'yes' : 'no';
+  $('s-configured').className = 'v ' + (data.configured ? 'ok' : 'bad');
+
+  if(data.influxReachable === null || data.influxReachable === undefined){
+    $('s-reachable').textContent = '–';
+    $('s-reachable').className = 'v';
+  } else {
+    $('s-reachable').textContent = data.influxReachable ? 'yes' : 'no';
+    $('s-reachable').className = 'v ' + (data.influxReachable ? 'ok' : 'bad');
+  }
+
+  $('s-org').textContent = data.org || '–';
+  $('s-bucket').textContent = data.bucket || '–';
+  $('statusDot').style.background = data.configured && data.influxReachable ? 'var(--ok)' : (data.configured ? 'var(--bad)' : 'var(--text-low)');
+
+  var rows = '';
+  Object.keys(data.fields || {}).forEach(function(key){
+    var f = data.fields[key];
+    rows += '<tr><td class="val">'+key+'</td><td>'+f.measurement+'</td><td>'+f.field+'</td><td>'+(f.unit||'')+'</td></tr>';
+  });
+  $('fieldRows').innerHTML = rows || '<tr><td colspan="4">No fields mapped.</td></tr>';
+}
+
+function check(){
+  $('s-configured').textContent = 'checking…';
+  $('s-reachable').textContent = 'checking…';
+  fetch('/api/health').then(function(r){ return r.json(); }).then(render).catch(function(err){
+    $('s-configured').textContent = 'error';
+    $('s-reachable').textContent = err.message;
+  });
+}
+
+$('checkBtn').addEventListener('click', check);
+check();
+</script>
+</body>
+</html>
