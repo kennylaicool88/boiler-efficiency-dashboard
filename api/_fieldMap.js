@@ -10,5 +10,5 @@ module.exports = {
   steamPressure:   { measurement: 'PBLR',         field: 'steam_pressure',      id: 'SAMYSK_POM_250048', unit: 'bar g' },
   feedTemp:        { measurement: 'PBLR',         field: 'vg_inlet_water_temp', id: 'SAMYSK_POM_250048', unit: '°C' },
   elecOutput:      { measurement: 'ETRB_turbine', field: 'power_total',         id: 'SAMYSK_POM_250049', unit: 'kW' },
-  exhaustPressure: { measurement: 'PSTR_bar',     field: 'bpv',                 id: 'SAMYSK_POM_250045', unit: 'bar g' },
+  exhaustPressure: { measurement: 'PSTR_bar',     field: 'bpv',                 id: 'SAMYSK_POM_240004', unit: 'bar g' },
 };
