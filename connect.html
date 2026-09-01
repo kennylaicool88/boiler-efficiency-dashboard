@@ -63,6 +63,7 @@ ol{margin-left:18px;font-size:12.5px;color:var(--text-mid);line-height:1.9;}
     <div class="status-row"><span>InfluxDB reachable</span><span class="v" id="s-reachable">checking…</span></div>
     <div class="status-row"><span>Org</span><span class="v" id="s-org">–</span></div>
     <div class="status-row"><span>Bucket</span><span class="v" id="s-bucket">–</span></div>
+    <div class="status-row"><span>Site ID</span><span class="v" id="s-siteid">–</span></div>
     <div style="margin-top:14px;"><button id="checkBtn">Check again</button></div>
   </div>
 
@@ -79,7 +80,7 @@ ol{margin-left:18px;font-size:12.5px;color:var(--text-mid);line-height:1.9;}
     <p>The InfluxDB token never touches this page or the dashboard — it lives only as a server-side environment variable on Vercel, read by the <code>/api/live-data</code> function.</p>
     <ol>
       <li>In the Vercel dashboard, open this project → <b>Settings → Environment Variables</b>.</li>
-      <li>Add <code>INFLUX_URL</code>, <code>INFLUX_TOKEN</code> (read-only token), <code>INFLUX_ORG</code>, <code>INFLUX_BUCKET</code>.</li>
+      <li>Add <code>INFLUX_URL</code>, <code>INFLUX_TOKEN</code> (read-only token), <code>INFLUX_ORG</code>, <code>INFLUX_BUCKET</code>, <code>INFLUX_SITE_ID</code> (the <code>id</code> tag identifying this mill).</li>
       <li>Redeploy. This page will show <b>reachable</b> once it's working.</li>
       <li>If field names don't match your InfluxDB tags, edit <code>api/_fieldMap.js</code> in the repo with the real measurement/field names, then push — Vercel redeploys automatically.</li>
     </ol>
@@ -103,6 +104,7 @@ function render(data){
 
   $('s-org').textContent = data.org || '–';
   $('s-bucket').textContent = data.bucket || '–';
+  $('s-siteid').textContent = data.siteId || '–';
   $('statusDot').style.background = data.configured && data.influxReachable ? 'var(--ok)' : (data.configured ? 'var(--bad)' : 'var(--text-low)');
 
   var rows = '';

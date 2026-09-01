@@ -29,16 +29,16 @@ In the Vercel project → **Settings → Environment Variables**, add:
 | `INFLUX_TOKEN` | a **read-only** API token scoped to the bucket |
 | `INFLUX_ORG` | your org name |
 | `INFLUX_BUCKET` | your bucket name |
+| `INFLUX_SITE_ID` | the `id` tag identifying this mill (e.g. `SAMYSK_POM_250048`) — the bucket holds data for multiple mills, so this scopes queries to one |
 
 These are only ever read server-side by `api/live-data.js` and
 `api/health.js` — they're never sent to the browser or committed to git.
 
 ### 2. Match your real InfluxDB tag names
 
-`api/_fieldMap.js` has placeholder measurement/field names for
-`steamRate`, `steamPressure`, and `feedTemp`. Open the InfluxDB UI →
-**Data Explorer**, find the real names, and edit that file. Push the
-change and Vercel redeploys automatically.
+`api/_fieldMap.js` maps `steamRate`, `steamPressure`, and `feedTemp` to
+their real measurement/field names in InfluxDB. If your tag names
+change, edit that file and push — Vercel redeploys automatically.
 
 ### 3. Verify
 

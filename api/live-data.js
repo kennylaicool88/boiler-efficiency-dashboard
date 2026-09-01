@@ -4,10 +4,10 @@ const FIELD_MAP = require('./_fieldMap');
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
 
-  const { INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET } = process.env;
-  if (!INFLUX_URL || !INFLUX_TOKEN || !INFLUX_ORG || !INFLUX_BUCKET) {
+  const { INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET, INFLUX_SITE_ID } = process.env;
+  if (!INFLUX_URL || !INFLUX_TOKEN || !INFLUX_ORG || !INFLUX_BUCKET || !INFLUX_SITE_ID) {
     res.status(500).json({
-      error: 'InfluxDB not configured. Set INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET as environment variables in the Vercel project settings, then redeploy.',
+      error: 'InfluxDB not configured. Set INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET, INFLUX_SITE_ID as environment variables in the Vercel project settings, then redeploy.',
     });
     return;
   }
@@ -22,6 +22,7 @@ module.exports = async (req, res) => {
       |> range(start: -10m)
       |> filter(fn: (r) => ${measurements.map(m => `r._measurement == "${m}"`).join(' or ')})
       |> filter(fn: (r) => ${fields.map(f => `r._field == "${f}"`).join(' or ')})
+      |> filter(fn: (r) => r.id == "${INFLUX_SITE_ID}")
       |> last()
   `;
 

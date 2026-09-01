@@ -3,11 +3,9 @@
 //
 // Left side = the field name the dashboard expects.
 // Right side = where it actually lives in InfluxDB (measurement + field).
-// TODO: replace with your real InfluxDB measurement/field names — check
-// the InfluxDB UI under Data Explorer, or ask whoever set up the
-// historian/SCADA tags feeding InfluxDB.
+// Source: SAMYSK_POM_250048, measurement "PBLR".
 module.exports = {
-  steamRate:     { measurement: 'boiler', field: 'steam_flow_tph',      unit: 't/hr' },
-  steamPressure: { measurement: 'boiler', field: 'steam_pressure_barg', unit: 'bar g' },
-  feedTemp:      { measurement: 'boiler', field: 'feedwater_temp_c',    unit: '°C' },
+  steamRate:     { measurement: 'PBLR', field: 'steam_flowrate',      unit: 't/hr' },
+  steamPressure: { measurement: 'PBLR', field: 'steam_pressure',      unit: 'bar g' },
+  feedTemp:      { measurement: 'PBLR', field: 'vg_inlet_water_temp', unit: '°C' },
 };
