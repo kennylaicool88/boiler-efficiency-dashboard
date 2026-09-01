@@ -161,6 +161,8 @@ body{
 }
 .gauge-sub{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text-low);margin-bottom:6px;}
 .gauge-panel .metrics-strip{margin-top:8px;}
+.metrics-strip--live{padding-top:12px;border-top:1px dashed var(--line-soft);}
+.metrics-strip--live .metric-card{background:transparent;border-style:dashed;}
 
 .metrics-strip{
   display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;
@@ -281,6 +283,20 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
         <div class="metric-card">
           <div class="m-label">Fuel rate</div>
           <div class="m-val" id="m-fuelRate">–<span class="m-unit">t/hr</span></div>
+        </div>
+      </div>
+      <div class="metrics-strip metrics-strip--live">
+        <div class="metric-card">
+          <div class="m-label">Steam output</div>
+          <div class="m-val" id="m-steamRate">–<span class="m-unit">t/hr</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Steam pressure</div>
+          <div class="m-val" id="m-steamPressure">–<span class="m-unit">bar g</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Feedwater temp</div>
+          <div class="m-val" id="m-feedTemp">–<span class="m-unit">°C</span></div>
         </div>
       </div>
     </div>
@@ -487,6 +503,10 @@ function recalc(){
   var steamRate = parseFloat($('steamRate').value)||0;
   var steamPressure = parseFloat($('steamPressure').value)||0;
   var feedTemp = parseFloat($('feedTemp').value)||0;
+
+  $('m-steamRate').innerHTML = fmt(steamRate,1)+'<span class="m-unit">t/hr</span>';
+  $('m-steamPressure').innerHTML = fmt(steamPressure,1)+'<span class="m-unit">bar g</span>';
+  $('m-feedTemp').innerHTML = fmt(feedTemp,1)+'<span class="m-unit">°C</span>';
 
   var fibreRateT = ffb*fibrePct/100;
   var shellRateT = ffb*shellPct/100;
