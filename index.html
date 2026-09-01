@@ -319,6 +319,16 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
           <div class="m-val" id="m-ssc">–<span class="m-unit">kg/kWh</span></div>
         </div>
       </div>
+      <div class="metrics-strip metrics-strip--live" style="grid-template-columns:1fr 1fr;">
+        <div class="metric-card">
+          <div class="m-label">Electrical output</div>
+          <div class="m-val" id="m-elecOutputLive">–<span class="m-unit">kW</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Exhaust pressure</div>
+          <div class="m-val" id="m-exhaustPressureLive">–<span class="m-unit">bar g</span></div>
+        </div>
+      </div>
       <details class="note-toggle">
         <summary>Compare to boiler efficiency</summary>
         <div class="delta-note" id="chp-note">–</div>
@@ -326,7 +336,7 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
     </div>
   </div>
 
-  <div class="hero-grid">
+  <div class="hero-grid" style="display:none;" aria-hidden="true">
     <div class="panel">
       <div class="panel-head"><span class="dot"></span>Steam &amp; Feedwater<span class="spacer"></span><span class="feeds-tag">feeds boiler gauge</span></div>
       <div class="field">
@@ -545,6 +555,10 @@ function recalc(){
 
   var elecOutput = parseFloat($('elecOutput').value)||0;
   var exhaustPressure = parseFloat($('exhaustPressure').value)||0;
+
+  $('m-elecOutputLive').innerHTML = fmt(elecOutput,0)+'<span class="m-unit">kW</span>';
+  $('m-exhaustPressureLive').innerHTML = fmt(exhaustPressure,2)+'<span class="m-unit">bar g</span>';
+
   var hExhaust = hgAt(exhaustPressure);
   var turbineDrop = hSteam-hExhaust;
   var turbineHeatDropKW = steamRateKg*turbineDrop/3600;
