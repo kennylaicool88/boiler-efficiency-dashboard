@@ -25,12 +25,22 @@
   --bad:#D64545;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
+*:focus-visible{outline:2px solid var(--steam);outline-offset:2px;}
 body{
-  background:var(--bg-deep);
+  background:
+    radial-gradient(ellipse 1200px 600px at 50% -10%, rgba(127,201,217,0.06), transparent),
+    var(--bg-deep);
   color:var(--text-hi);
   font-family:'Inter',sans-serif;
   padding:28px 20px 60px;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
 }
+::selection{background:var(--ember-dim);color:var(--text-hi);}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-track{background:var(--bg-deep);}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px;}
+::-webkit-scrollbar-thumb:hover{background:var(--steam-dim);}
 .wrap{max-width:1180px;margin:0 auto;}
 
 .topbar{
@@ -54,19 +64,30 @@ body{
   text-align:right;line-height:1.6;
 }
 
-.grid{
-  display:grid;
-  grid-template-columns: 320px 1fr;
-  gap:18px;
-  align-items:start;
+.hero-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:18px;
+  margin-bottom:18px;
 }
-@media(max-width:980px){ .grid{grid-template-columns:1fr;} #turbineGridWrap{grid-template-columns:1fr;} }
+@media(max-width:760px){ .hero-grid{grid-template-columns:1fr;} }
+
+.feeds-tag{
+  font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.04em;
+  text-transform:none;color:var(--text-low);
+}
+
+.field-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:0 16px;
+}
+@media(max-width:640px){ .field-grid{grid-template-columns:1fr;} }
 
 .panel{
   background:var(--bg-panel);
   border:1px solid var(--line);
-  border-radius:3px;
+  border-radius:5px;
   padding:18px 18px 20px;
+  box-shadow:0 1px 0 rgba(0,0,0,0.2), 0 8px 20px -12px rgba(0,0,0,0.5);
+  transition:border-color .15s ease;
 }
 .panel-head{
   display:flex;align-items:center;gap:8px;
@@ -74,12 +95,18 @@ body{
   text-transform:uppercase;color:var(--steam);
   border-bottom:1px solid var(--line-soft);padding-bottom:10px;margin-bottom:14px;
 }
-.panel-head .dot{width:7px;height:7px;border-radius:50%;background:var(--steam);flex-shrink:0;}
+.panel-head .dot{width:7px;height:7px;border-radius:50%;background:var(--steam);flex-shrink:0;transition:background-color .2s ease, box-shadow .2s ease;}
+.panel-head .dot.pulse{box-shadow:0 0 0 0 rgba(79,174,124,0.55);animation:dot-pulse 2s ease-out infinite;}
+@keyframes dot-pulse{
+  0%{box-shadow:0 0 0 0 rgba(79,174,124,0.5);}
+  70%{box-shadow:0 0 0 7px rgba(79,174,124,0);}
+  100%{box-shadow:0 0 0 0 rgba(79,174,124,0);}
+}
 .panel-head .spacer{flex:1;}
 .panel-head a{
   font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.02em;
   text-transform:none;color:var(--text-mid);text-decoration:none;
-  border-bottom:1px dotted var(--text-low);
+  border-bottom:1px dotted var(--text-low);transition:color .15s ease,border-color .15s ease;
 }
 .panel-head a:hover{color:var(--steam);border-bottom-color:var(--steam);}
 
@@ -93,14 +120,13 @@ body{
 .field input[type=number],.field input[type=text]{
   width:100%;background:var(--bg-panel-alt);border:1px solid var(--line);
   color:var(--text-hi);font-family:'JetBrains Mono',monospace;font-size:14px;
-  padding:8px 10px;border-radius:2px;outline:none;
+  font-variant-numeric:tabular-nums;
+  padding:8px 10px;border-radius:3px;outline:none;
+  transition:border-color .15s ease, box-shadow .15s ease;
 }
-.field input[type=number]:focus,.field input[type=text]:focus{border-color:var(--steam);}
-.field input[type=range]{
-  width:100%;accent-color:var(--ember);height:4px;
-}
-.field .rangeval{
-  font-family:'JetBrains Mono',monospace;color:var(--ember);font-size:12px;
+.field input[type=number]:hover,.field input[type=text]:hover{border-color:var(--steam-dim);}
+.field input[type=number]:focus,.field input[type=text]:focus{
+  border-color:var(--steam);box-shadow:0 0 0 3px rgba(127,201,217,0.14);
 }
 .readout-row{
   display:flex;justify-content:space-between;align-items:baseline;
@@ -108,54 +134,85 @@ body{
   padding:6px 0;border-top:1px solid var(--line-soft);
   color:var(--text-mid);
 }
-.readout-row .val{color:var(--text-hi);font-weight:700;}
+.readout-row .val{color:var(--text-hi);font-weight:700;font-variant-numeric:tabular-nums;}
 .readouts{margin-top:14px;}
 
-.center-col{display:flex;flex-direction:column;gap:18px;}
-
 .gauge-panel{
-  background:var(--bg-panel);border:1px solid var(--line);border-radius:3px;
-  padding:20px 18px 16px;text-align:center;
+  border:1px solid var(--line);border-radius:5px;
+  box-shadow:0 1px 0 rgba(0,0,0,0.2), 0 10px 24px -12px rgba(0,0,0,0.55);
+  padding:22px 20px 20px;text-align:center;
+  display:flex;flex-direction:column;
 }
+.gauge-panel--boiler{
+  background:
+    radial-gradient(ellipse 320px 200px at 50% 55%, rgba(127,201,217,0.12), transparent),
+    var(--bg-panel);
+}
+.gauge-panel--boiler .gauge-label{color:var(--steam);}
+.gauge-panel--chp{
+  background:
+    radial-gradient(ellipse 320px 200px at 50% 55%, rgba(79,174,124,0.12), transparent),
+    var(--bg-panel);
+}
+.gauge-panel--chp .gauge-label{color:var(--ok);}
 .gauge-label{
-  font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:.12em;
-  text-transform:uppercase;color:var(--steam);margin-bottom:6px;
+  font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:.12em;
+  text-transform:uppercase;margin-bottom:4px;
 }
 .gauge-sub{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text-low);margin-bottom:6px;}
+.gauge-panel .metrics-strip{margin-top:8px;}
 
 .metrics-strip{
   display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;
 }
 .metric-card{
-  background:var(--bg-panel-alt);border:1px solid var(--line-soft);border-radius:3px;
+  background:var(--bg-panel-alt);border:1px solid var(--line-soft);border-radius:4px;
   padding:12px 14px;
+  transition:border-color .15s ease, transform .15s ease;
 }
+.metric-card:hover{border-color:var(--steam-dim);transform:translateY(-1px);}
 .metric-card .m-label{font-size:10.5px;color:var(--text-low);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
-.metric-card .m-val{font-family:'JetBrains Mono',monospace;font-size:19px;color:var(--text-hi);font-weight:700;}
+.metric-card .m-val{font-family:'JetBrains Mono',monospace;font-size:19px;color:var(--text-hi);font-weight:700;font-variant-numeric:tabular-nums;}
 .metric-card .m-val .m-unit{font-size:11px;color:var(--text-mid);font-weight:400;margin-left:3px;}
 
+.select-field{
+  width:100%;background:var(--bg-panel-alt);border:1px solid var(--line);color:var(--text-hi);
+  font-family:'JetBrains Mono',monospace;font-size:14px;padding:8px 10px;border-radius:3px;
+  cursor:pointer;transition:border-color .15s ease, box-shadow .15s ease;
+}
+.select-field:hover{border-color:var(--steam-dim);}
+.select-field:focus{border-color:var(--steam);box-shadow:0 0 0 3px rgba(127,201,217,0.14);outline:none;}
+
+.btn-primary{
+  background:var(--ember);color:var(--bg-deep);border:none;
+  font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  font-size:12.5px;padding:9px 18px;border-radius:3px;cursor:pointer;height:36px;
+  transition:filter .15s ease, transform .1s ease;
+}
+.btn-primary:hover{filter:brightness(1.08);}
+.btn-primary:active{transform:translateY(1px);}
+.btn-primary.is-live{background:var(--bad);}
+
 .delta-note{
-  margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);
   font-size:11.5px;color:var(--text-mid);line-height:1.5;
 }
 .delta-note b{color:var(--text-hi);}
 
-.loss-bar-wrap{margin-top:4px;}
-.loss-stack{
-  display:flex;width:100%;height:26px;border-radius:2px;overflow:hidden;
-  border:1px solid var(--line-soft);
+.note-toggle{margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);}
+.note-toggle summary{
+  cursor:pointer;list-style:none;
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.02em;
+  color:var(--text-mid);display:flex;align-items:center;gap:6px;
+  transition:color .15s ease;
 }
-.loss-seg{height:100%;position:relative;}
-.loss-legend{
-  display:flex;flex-direction:column;gap:6px;margin-top:12px;
+.note-toggle summary::-webkit-details-marker{display:none;}
+.note-toggle summary:hover{color:var(--ok);}
+.note-toggle summary::before{
+  content:'▸';display:inline-block;font-size:9px;color:var(--text-low);
+  transition:transform .15s ease;
 }
-.loss-legend-row{
-  display:flex;align-items:center;gap:8px;font-size:11.5px;
-  font-family:'JetBrains Mono',monospace;color:var(--text-mid);
-}
-.loss-legend-row .swatch{width:9px;height:9px;flex-shrink:0;border-radius:1px;}
-.loss-legend-row .lname{flex:1;color:var(--text-mid);font-family:'Inter',sans-serif;font-size:12px;}
-.loss-legend-row .lval{color:var(--text-hi);font-weight:700;width:46px;text-align:right;}
+.note-toggle[open] summary::before{transform:rotate(90deg);}
+.note-toggle .delta-note{margin-top:8px;}
 
 .assumptions{
   margin-top:18px;padding-top:14px;border-top:1px solid var(--line);
@@ -193,92 +250,24 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
       </div>
       <div class="field" style="margin-bottom:0;">
         <label>Poll interval</label>
-        <select id="pollInterval" style="width:100%;background:var(--bg-panel-alt);border:1px solid var(--line);color:var(--text-hi);font-family:'JetBrains Mono',monospace;font-size:14px;padding:8px 10px;border-radius:2px;">
+        <select id="pollInterval" class="select-field">
           <option value="10">10s</option>
           <option value="30" selected>30s</option>
           <option value="60">60s</option>
         </select>
       </div>
-      <button id="liveToggleBtn" style="background:var(--ember);color:var(--bg-deep);border:none;font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:12.5px;padding:9px 18px;border-radius:2px;cursor:pointer;height:36px;">Connect</button>
+      <button id="liveToggleBtn" class="btn-primary">Connect</button>
     </div>
     <div id="liveStatus" style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--text-low);">
       Not connected — steam output, steam pressure and feedwater temperature can be filled automatically once connected; every other field (fuel, turbine, exhaust) stays manual.
     </div>
   </div>
 
-  <div class="grid">
-
-    <div class="col-left">
-      <div class="panel">
-        <div class="panel-head"><span class="dot"></span>Fuel Supply</div>
-        <div class="field">
-          <label>FFB throughput <span class="unit">t/hr</span></label>
-          <input type="number" id="ffb" value="60" step="1" min="0">
-        </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-low);text-transform:uppercase;letter-spacing:.08em;margin:2px 0 8px;">Rule-of-thumb baselines (editable)</div>
-        <div class="field">
-          <label>Mesocarp fibre yield <span class="unit">% of FFB</span></label>
-          <input type="number" id="fibrePct" value="12" step="0.5" min="0">
-        </div>
-        <div class="field">
-          <label>Fibre GCV as-fired <span class="unit">kJ/kg, 35–40% MC</span></label>
-          <input type="number" id="fibreGcv" value="10750" step="50" min="0">
-        </div>
-        <div class="field">
-          <label>Palm kernel shell yield <span class="unit">% of FFB</span></label>
-          <input type="number" id="shellPct" value="5" step="0.5" min="0">
-        </div>
-        <div class="field">
-          <label>Shell GCV as-fired <span class="unit">kJ/kg, 15–20% MC</span></label>
-          <input type="number" id="shellGcv" value="15500" step="50" min="0">
-        </div>
-        <div class="field">
-          <label>Shredded EFB yield <span class="unit">% of FFB</span></label>
-          <input type="number" id="efbPct" value="0" step="0.5" min="0">
-        </div>
-        <div class="field">
-          <label>EFB GCV as-fired <span class="unit">kJ/kg, 45–50% MC</span></label>
-          <input type="number" id="efbGcv" value="8000" step="50" min="0">
-        </div>
-        <div class="readouts">
-          <div class="readout-row"><span>Fibre rate</span><span class="val" id="out-fibreRate">–</span></div>
-          <div class="readout-row"><span>Shell rate</span><span class="val" id="out-shellRate">–</span></div>
-          <div class="readout-row"><span>EFB rate</span><span class="val" id="out-efbRate">–</span></div>
-          <div class="readout-row"><span>Total fuel rate</span><span class="val" id="out-fuelRate">–</span></div>
-          <div class="readout-row"><span>Blended GCV as-fired</span><span class="val" id="out-gcvWet">–</span></div>
-        </div>
-      </div>
-
-      <div style="height:16px;"></div>
-
-      <div class="panel">
-        <div class="panel-head"><span class="dot"></span>Steam &amp; Feedwater</div>
-        <div class="field">
-          <label>Steam output <span class="unit">t/hr</span></label>
-          <input type="number" id="steamRate" value="25" step="0.5" min="0">
-        </div>
-        <div class="field">
-          <label>Steam pressure (saturated) <span class="unit">bar g</span></label>
-          <input type="number" id="steamPressure" value="20" step="0.5" min="0.5" max="40">
-        </div>
-        <div class="field">
-          <label>Feedwater temperature <span class="unit">°C</span></label>
-          <input type="number" id="feedTemp" value="90" step="1" min="0" max="150">
-        </div>
-        <div class="readouts">
-          <div class="readout-row"><span>Steam enthalpy h_g</span><span class="val" id="out-hSteam">–</span></div>
-          <div class="readout-row"><span>Feedwater enthalpy h_f</span><span class="val" id="out-hFeed">–</span></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="center-col">
-      <div class="gauge-panel">
-        <div class="gauge-label">Direct method efficiency</div>
-        <div class="gauge-sub">steam heat output / fuel heat input</div>
-        <svg id="gauge" viewBox="0 0 300 175" style="max-width:320px;width:100%;"></svg>
-      </div>
-
+  <div class="hero-grid">
+    <div class="gauge-panel gauge-panel--boiler">
+      <div class="gauge-label">Boiler Efficiency</div>
+      <div class="gauge-sub">direct method — steam heat output / fuel heat input</div>
+      <svg id="gaugeBoiler" viewBox="0 0 300 190" style="max-width:320px;width:100%;margin:0 auto;"></svg>
       <div class="metrics-strip">
         <div class="metric-card">
           <div class="m-label">Steam heat duty</div>
@@ -293,55 +282,112 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
           <div class="m-val" id="m-fuelRate">–<span class="m-unit">t/hr</span></div>
         </div>
       </div>
-
     </div>
 
+    <div class="gauge-panel gauge-panel--chp">
+      <div class="gauge-label">Overall CHP Efficiency</div>
+      <div class="gauge-sub">electrical + process heat / fuel heat input</div>
+      <svg id="gaugeChp" viewBox="0 0 300 190" style="max-width:320px;width:100%;margin:0 auto;"></svg>
+      <div class="metrics-strip">
+        <div class="metric-card">
+          <div class="m-label">Electrical output</div>
+          <div class="m-val" id="m-elecOutput">–<span class="m-unit">MW</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Process heat</div>
+          <div class="m-val" id="m-processHeat">–<span class="m-unit">MW</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Steam consumption</div>
+          <div class="m-val" id="m-ssc">–<span class="m-unit">kg/kWh</span></div>
+        </div>
+      </div>
+      <details class="note-toggle">
+        <summary>Compare to boiler efficiency</summary>
+        <div class="delta-note" id="chp-note">–</div>
+      </details>
+    </div>
+  </div>
+
+  <div class="hero-grid">
+    <div class="panel">
+      <div class="panel-head"><span class="dot"></span>Steam &amp; Feedwater<span class="spacer"></span><span class="feeds-tag">feeds boiler gauge</span></div>
+      <div class="field">
+        <label>Steam output <span class="unit">t/hr</span></label>
+        <input type="number" id="steamRate" value="25" step="0.5" min="0">
+      </div>
+      <div class="field">
+        <label>Steam pressure (saturated) <span class="unit">bar g</span></label>
+        <input type="number" id="steamPressure" value="20" step="0.5" min="0.5" max="40">
+      </div>
+      <div class="field">
+        <label>Feedwater temperature <span class="unit">°C</span></label>
+        <input type="number" id="feedTemp" value="90" step="1" min="0" max="150">
+      </div>
+      <div class="readouts">
+        <div class="readout-row"><span>Steam enthalpy h_g</span><span class="val" id="out-hSteam">–</span></div>
+        <div class="readout-row"><span>Feedwater enthalpy h_f</span><span class="val" id="out-hFeed">–</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span class="dot"></span>Turbine &amp; Cogeneration<span class="spacer"></span><span class="feeds-tag">feeds CHP gauge</span></div>
+      <div class="field">
+        <label>Electrical power output <span class="unit">kW, generator meter</span></label>
+        <input type="number" id="elecOutput" value="1200" step="10" min="0">
+      </div>
+      <div class="field">
+        <label>Turbine exhaust / process steam pressure <span class="unit">bar g</span></label>
+        <input type="number" id="exhaustPressure" value="3" step="0.5" min="0.5" max="15">
+      </div>
+      <div class="readouts">
+        <div class="readout-row"><span>Exhaust steam enthalpy h₂</span><span class="val" id="out-hExhaust">–</span></div>
+        <div class="readout-row"><span>Enthalpy drop across turbine</span><span class="val" id="out-turbineDrop">–</span></div>
+        <div class="readout-row"><span>Turbine + generator conversion</span><span class="val" id="out-turbineEff">–</span></div>
+        <div class="readout-row"><span>Specific steam consumption</span><span class="val" id="out-ssc">–</span></div>
+      </div>
+    </div>
   </div>
 
   <div class="panel" style="margin-top:18px;">
-    <div class="panel-head"><span class="dot"></span>Turbine &amp; Cogeneration (Back-Pressure)</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;" id="turbineGridWrap">
-      <div>
-        <div class="field">
-          <label>Electrical power output <span class="unit">kW, generator meter</span></label>
-          <input type="number" id="elecOutput" value="1200" step="10" min="0">
-        </div>
-        <div class="field">
-          <label>Turbine exhaust / process steam pressure <span class="unit">bar g</span></label>
-          <input type="number" id="exhaustPressure" value="3" step="0.5" min="0.5" max="15">
-        </div>
-        <div class="readouts">
-          <div class="readout-row"><span>Exhaust steam enthalpy h₂</span><span class="val" id="out-hExhaust">–</span></div>
-          <div class="readout-row"><span>Enthalpy drop across turbine</span><span class="val" id="out-turbineDrop">–</span></div>
-          <div class="readout-row"><span>Turbine + generator conversion</span><span class="val" id="out-turbineEff">–</span></div>
-          <div class="readout-row"><span>Specific steam consumption</span><span class="val" id="out-ssc">–</span></div>
-        </div>
+    <div class="panel-head"><span class="dot"></span>Fuel Supply<span class="spacer"></span><span class="feeds-tag">feeds both gauges</span></div>
+    <div class="field">
+      <label>FFB throughput <span class="unit">t/hr</span></label>
+      <input type="number" id="ffb" value="60" step="1" min="0">
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-low);text-transform:uppercase;letter-spacing:.08em;margin:2px 0 8px;">Rule-of-thumb baselines (editable)</div>
+    <div class="field-grid">
+      <div class="field">
+        <label>Mesocarp fibre yield <span class="unit">% of FFB</span></label>
+        <input type="number" id="fibrePct" value="12" step="0.5" min="0">
       </div>
-      <div>
-        <div class="metrics-strip" style="grid-template-columns:1fr 1fr;">
-          <div class="metric-card">
-            <div class="m-label">Electrical output</div>
-            <div class="m-val" id="m-elecOutput">–<span class="m-unit">MW</span></div>
-          </div>
-          <div class="metric-card">
-            <div class="m-label">Useful process heat</div>
-            <div class="m-val" id="m-processHeat">–<span class="m-unit">MW</span></div>
-          </div>
-        </div>
-        <div style="margin-top:16px;">
-          <div class="compare-row">
-            <div class="compare-tag">Boiler</div>
-            <div class="compare-bar-track"><div class="compare-bar-fill" id="bar-boilerEff2" style="background:var(--steam);width:0%;"></div></div>
-            <div class="compare-num" id="num-boilerEff2" style="color:var(--steam);">–</div>
-          </div>
-          <div class="compare-row">
-            <div class="compare-tag">Overall CHP</div>
-            <div class="compare-bar-track"><div class="compare-bar-fill" id="bar-chp" style="background:var(--ok);width:0%;"></div></div>
-            <div class="compare-num" id="num-chp" style="color:var(--ok);">–</div>
-          </div>
-        </div>
-        <div class="delta-note" id="chp-note">–</div>
+      <div class="field">
+        <label>Fibre GCV as-fired <span class="unit">kJ/kg, 35–40% MC</span></label>
+        <input type="number" id="fibreGcv" value="10750" step="50" min="0">
       </div>
+      <div class="field">
+        <label>Palm kernel shell yield <span class="unit">% of FFB</span></label>
+        <input type="number" id="shellPct" value="5" step="0.5" min="0">
+      </div>
+      <div class="field">
+        <label>Shell GCV as-fired <span class="unit">kJ/kg, 15–20% MC</span></label>
+        <input type="number" id="shellGcv" value="15500" step="50" min="0">
+      </div>
+      <div class="field">
+        <label>Shredded EFB yield <span class="unit">% of FFB</span></label>
+        <input type="number" id="efbPct" value="0" step="0.5" min="0">
+      </div>
+      <div class="field">
+        <label>EFB GCV as-fired <span class="unit">kJ/kg, 45–50% MC</span></label>
+        <input type="number" id="efbGcv" value="8000" step="50" min="0">
+      </div>
+    </div>
+    <div class="readouts">
+      <div class="readout-row"><span>Fibre rate</span><span class="val" id="out-fibreRate">–</span></div>
+      <div class="readout-row"><span>Shell rate</span><span class="val" id="out-shellRate">–</span></div>
+      <div class="readout-row"><span>EFB rate</span><span class="val" id="out-efbRate">–</span></div>
+      <div class="readout-row"><span>Total fuel rate</span><span class="val" id="out-fuelRate">–</span></div>
+      <div class="readout-row"><span>Blended GCV as-fired</span><span class="val" id="out-gcvWet">–</span></div>
     </div>
   </div>
 
@@ -374,11 +420,10 @@ function hgAt(p){
   return steamTable[steamTable.length-1][1];
 }
 
-function drawGauge(pct){
-  var svg = $('gauge');
-  var cx=150, cy=150, r=120;
+function drawGauge(svgId, pct, accentVar){
+  var svg = $(svgId);
+  var cx=150, cy=150, r=112;
   var clamped = Math.max(0, Math.min(100, pct));
-  var startAngle = 180, endAngle = 0;
   function polar(cx,cy,r,angleDeg){
     var a = angleDeg * Math.PI/180;
     return [cx + r*Math.cos(a), cy - r*Math.sin(a)];
@@ -397,20 +442,35 @@ function drawGauge(pct){
     {from:68,to:100,color:'#4FAE7C'}
   ];
   var needleAngle = 180 - clamped/100*180;
-  var needleTip = polar(cx,cy,r-14,needleAngle);
+  var needleTip = polar(cx,cy,r-20,needleAngle);
+  var needleTailA = polar(cx,cy,11,needleAngle+150);
+  var needleTailB = polar(cx,cy,11,needleAngle-150);
 
   var svgHtml = '';
+  // outer bezel
+  svgHtml += '<path d="'+arcPath(r+11,0,100)+'" stroke="#0D1E30" stroke-width="3" fill="none" opacity="0.7"/>';
+  // status bands
   bands.forEach(function(b){
-    svgHtml += '<path d="'+arcPath(r,b.from,b.to)+'" stroke="'+b.color+'" stroke-width="14" fill="none" opacity="0.85" stroke-linecap="butt"/>';
+    svgHtml += '<path d="'+arcPath(r,b.from,b.to)+'" stroke="'+b.color+'" stroke-width="15" fill="none" opacity="0.9" stroke-linecap="butt"/>';
   });
-  svgHtml += '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleTip[0]+'" y2="'+needleTip[1]+'" stroke="#EAF2F5" stroke-width="3" stroke-linecap="round"/>';
-  svgHtml += '<circle cx="'+cx+'" cy="'+cy+'" r="7" fill="#EAF2F5"/>';
-  svgHtml += '<text x="'+cx+'" y="'+(cy-30)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="34" font-weight="700" fill="#EAF2F5">'+ (isFinite(pct)? pct.toFixed(1):'–') +'%</text>';
+  // tick marks — minor every 5%, major every 25%
+  for(var t=0; t<=100; t+=5){
+    var isMajor = t%25===0;
+    var p1 = polar(cx,cy,r+9, 180-t/100*180);
+    var p2 = polar(cx,cy, isMajor? r+19 : r+14, 180-t/100*180);
+    svgHtml += '<line x1="'+p1[0]+'" y1="'+p1[1]+'" x2="'+p2[0]+'" y2="'+p2[1]+'" stroke="'+(isMajor?'#9BB4C7':'#3D6B75')+'" stroke-width="'+(isMajor?1.5:1)+'"/>';
+  }
+  // major labels
   [0,25,50,75,100].forEach(function(t){
-    var a = 180 - t/100*180;
-    var p = polar(cx,cy,r+20,a);
+    var p = polar(cx,cy,r+32, 180-t/100*180);
     svgHtml += '<text x="'+p[0]+'" y="'+(p[1]+4)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#5F7A8F">'+t+'</text>';
   });
+  // needle
+  svgHtml += '<polygon points="'+needleTip.join(',')+' '+needleTailA.join(',')+' '+needleTailB.join(',')+'" style="fill:'+accentVar+'" opacity="0.95"/>';
+  svgHtml += '<circle cx="'+cx+'" cy="'+cy+'" r="10" fill="#0D1E30" style="stroke:'+accentVar+'" stroke-width="2"/>';
+  svgHtml += '<circle cx="'+cx+'" cy="'+cy+'" r="3.5" style="fill:'+accentVar+'"/>';
+  // big number
+  svgHtml += '<text x="'+cx+'" y="'+(cy-34)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="38" font-weight="700" fill="#EAF2F5">'+ (isFinite(pct)? pct.toFixed(1):'–') +'<tspan font-size="17" fill="#9BB4C7" dx="2">%</tspan></text>';
   svg.innerHTML = svgHtml;
 }
 
@@ -460,7 +520,7 @@ function recalc(){
   $('m-fuelDuty').innerHTML = fmt(fuelDutyKW/1000,2)+'<span class="m-unit">MW</span>';
   $('m-fuelRate').innerHTML = fmt(fuelRateT,2)+'<span class="m-unit">t/hr</span>';
 
-  drawGauge(directEff);
+  drawGauge('gaugeBoiler', directEff, 'var(--steam)');
 
   var elecOutput = parseFloat($('elecOutput').value)||0;
   var exhaustPressure = parseFloat($('exhaustPressure').value)||0;
@@ -477,12 +537,10 @@ function recalc(){
   $('out-ssc').textContent = fmt(ssc,2)+' kg/kWh';
   $('m-elecOutput').innerHTML = fmt(elecOutput/1000,2)+'<span class="m-unit">MW</span>';
   $('m-processHeat').innerHTML = fmt(processHeatKW/1000,2)+'<span class="m-unit">MW</span>';
+  $('m-ssc').innerHTML = fmt(ssc,2)+'<span class="m-unit">kg/kWh</span>';
 
   var chpEff = fuelDutyKW>0 ? ((elecOutput+processHeatKW)/fuelDutyKW*100) : 0;
-  $('bar-boilerEff2').style.width = Math.min(100,directEff)+'%';
-  $('bar-chp').style.width = Math.min(100,chpEff)+'%';
-  $('num-boilerEff2').textContent = directEff.toFixed(1)+'%';
-  $('num-chp').textContent = chpEff.toFixed(1)+'%';
+  drawGauge('gaugeChp', chpEff, 'var(--ok)');
 
   var chpNote;
   if(chpEff > directEff){
@@ -505,6 +563,7 @@ var LIVE_FIELD_IDS = ['steamRate','steamPressure','feedTemp'];
 function setLiveStatus(msg, ok){
   $('liveStatus').textContent = msg;
   $('liveDot').style.background = ok===true ? 'var(--ok)' : (ok===false ? 'var(--bad)' : 'var(--text-low)');
+  $('liveDot').classList.toggle('pulse', ok===true);
 }
 
 function pollLiveData(){
@@ -533,14 +592,14 @@ $('liveToggleBtn').addEventListener('click', function(){
     clearInterval(liveTimer);
     liveConnected = false;
     $('liveToggleBtn').textContent = 'Connect';
-    $('liveToggleBtn').style.background = 'var(--ember)';
+    $('liveToggleBtn').classList.remove('is-live');
     setLiveStatus('Disconnected.', null);
   } else {
     var url = $('proxyUrl').value.trim();
     if(!url){ setLiveStatus('Enter a live data endpoint first.', false); return; }
     liveConnected = true;
     $('liveToggleBtn').textContent = 'Disconnect';
-    $('liveToggleBtn').style.background = 'var(--bad)';
+    $('liveToggleBtn').classList.add('is-live');
     pollLiveData();
     var seconds = parseInt($('pollInterval').value,10)||30;
     liveTimer = setInterval(pollLiveData, seconds*1000);
