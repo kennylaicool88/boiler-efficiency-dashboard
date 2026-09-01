@@ -1,8 +1,30 @@
 const { InfluxDB } = require('@influxdata/influxdb-client');
-const FIELD_MAP = require('./_fieldMap');
+const { configured: supabaseConfigured, getStationOrDefault } = require('./_supabase');
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
+
+  if (!supabaseConfigured()) {
+    res.status(500).json({
+      error: 'Supabase not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY as environment variables in the Vercel project settings, then redeploy.',
+    });
+    return;
+  }
+
+  const requestedStation = req.query && req.query.station;
+  let station;
+  try {
+    station = await getStationOrDefault(requestedStation);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to look up station', detail: String((err && err.message) || err) });
+    return;
+  }
+  if (!station) {
+    res.status(400).json({ error: requestedStation ? `Unknown station "${requestedStation}".` : 'No stations configured yet.' });
+    return;
+  }
+  const FIELD_MAP = station.fields;
 
   const { INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET } = process.env;
   if (!INFLUX_URL || !INFLUX_TOKEN || !INFLUX_ORG || !INFLUX_BUCKET) {
@@ -57,6 +79,7 @@ module.exports = async (req, res) => {
     output._timestamp = new Date().toISOString();
     output._fieldsFound = fieldsFound;
     output._fieldsExpected = Object.keys(FIELD_MAP).length;
+    output._station = station.id;
 
     res.status(200).json(output);
   } catch (err) {
