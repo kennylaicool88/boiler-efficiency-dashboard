@@ -251,6 +251,7 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
       <div class="field" style="margin-bottom:0;">
         <label>Poll interval</label>
         <select id="pollInterval" class="select-field">
+          <option value="5">5s</option>
           <option value="10">10s</option>
           <option value="30" selected>30s</option>
           <option value="60">60s</option>
@@ -259,7 +260,7 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
       <button id="liveToggleBtn" class="btn-primary">Connect</button>
     </div>
     <div id="liveStatus" style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--text-low);">
-      Not connected — steam output, steam pressure and feedwater temperature can be filled automatically once connected; every other field (fuel, turbine, exhaust) stays manual.
+      Connecting…
     </div>
   </div>
 
@@ -587,23 +588,27 @@ function pollLiveData(){
   });
 }
 
+function connectLive(){
+  var url = $('proxyUrl').value.trim();
+  if(!url){ setLiveStatus('Enter a live data endpoint first.', false); return; }
+  liveConnected = true;
+  $('liveToggleBtn').textContent = 'Disconnect';
+  $('liveToggleBtn').classList.add('is-live');
+  pollLiveData();
+  var seconds = parseInt($('pollInterval').value,10)||30;
+  liveTimer = setInterval(pollLiveData, seconds*1000);
+}
+
+function disconnectLive(){
+  clearInterval(liveTimer);
+  liveConnected = false;
+  $('liveToggleBtn').textContent = 'Connect';
+  $('liveToggleBtn').classList.remove('is-live');
+  setLiveStatus('Disconnected.', null);
+}
+
 $('liveToggleBtn').addEventListener('click', function(){
-  if(liveConnected){
-    clearInterval(liveTimer);
-    liveConnected = false;
-    $('liveToggleBtn').textContent = 'Connect';
-    $('liveToggleBtn').classList.remove('is-live');
-    setLiveStatus('Disconnected.', null);
-  } else {
-    var url = $('proxyUrl').value.trim();
-    if(!url){ setLiveStatus('Enter a live data endpoint first.', false); return; }
-    liveConnected = true;
-    $('liveToggleBtn').textContent = 'Disconnect';
-    $('liveToggleBtn').classList.add('is-live');
-    pollLiveData();
-    var seconds = parseInt($('pollInterval').value,10)||30;
-    liveTimer = setInterval(pollLiveData, seconds*1000);
-  }
+  if(liveConnected){ disconnectLive(); } else { connectLive(); }
 });
 
 $('pollInterval').addEventListener('change', function(){
@@ -613,6 +618,8 @@ $('pollInterval').addEventListener('change', function(){
     liveTimer = setInterval(pollLiveData, seconds*1000);
   }
 });
+
+connectLive();
 </script>
 </body>
 </html>
