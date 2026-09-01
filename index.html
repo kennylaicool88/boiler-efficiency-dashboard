@@ -171,13 +171,13 @@ body{
   100%{box-shadow:0 0 0 0 rgba(79,174,124,0);}
 }
 .panel-head .spacer{flex:1;}
-.panel-head a,.panel-head button.link{
+a.link,button.link{
   font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.02em;
   text-transform:none;color:var(--text-mid);text-decoration:none;
   border-bottom:1px dotted var(--text-low);transition:color .15s ease,border-color .15s ease;
   background:none;border-top:none;border-left:none;border-right:none;cursor:pointer;padding:0;
 }
-.panel-head a:hover,.panel-head button.link:hover{color:var(--steam);border-bottom-color:var(--steam);}
+a.link:hover,button.link:hover{color:var(--steam);border-bottom-color:var(--steam);}
 
 .field{margin-bottom:13px;}
 .field:last-child{margin-bottom:0;}
@@ -197,6 +197,7 @@ body{
 .field input[type=number]:focus,.field input[type=text]:focus{
   border-color:var(--steam);box-shadow:0 0 0 3px rgba(127,201,217,0.14);
 }
+.field input[type=number]:disabled,.field input[type=text]:disabled{opacity:.4;cursor:not-allowed;}
 .readout-row{
   display:flex;justify-content:space-between;align-items:baseline;
   font-family:'JetBrains Mono',monospace;font-size:12px;
@@ -521,7 +522,7 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
         </div>
 
         <div class="panel" style="margin-top:18px;">
-          <div class="panel-head"><span class="dot" style="background:var(--steam);"></span>Mapped Fields</div>
+          <div class="panel-head"><span class="dot" style="background:var(--steam);"></span>Mapped Fields <span class="unit" style="text-transform:none;">— selected station</span></div>
           <table class="settings-table">
             <thead><tr><th>Dashboard field</th><th>Measurement</th><th>Field</th><th>Device ID</th><th>Unit</th></tr></thead>
             <tbody id="fieldRows"><tr><td colspan="5">Loading…</td></tr></tbody>
@@ -529,8 +530,21 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
         </div>
 
         <div class="panel" style="margin-top:18px;">
-          <div class="panel-head"><span class="dot" style="background:var(--ember);"></span>Add Station</div>
-          <p class="settings-p">Add a new station's boiler + turbine field mapping. It's saved to the station database and appears in the sidebar switcher immediately — no redeploy needed.</p>
+          <div class="panel-head"><span class="dot" style="background:var(--steam);"></span>All Stations</div>
+          <table class="settings-table">
+            <thead><tr><th>Name</th><th>Station ID</th><th></th></tr></thead>
+            <tbody id="allStationsRows"><tr><td colspan="3">Loading…</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="panel" id="addStationPanel" style="margin-top:18px;">
+          <div class="panel-head">
+            <span class="dot" style="background:var(--ember);"></span>
+            <span id="addStationFormTitle">Add Station</span>
+            <span class="spacer"></span>
+            <button class="link" id="cancelEditBtn" type="button" style="display:none;">Cancel edit</button>
+          </div>
+          <p class="settings-p">Add or edit a station's boiler + turbine field mapping. It's saved to the station database and appears in the sidebar switcher immediately — no redeploy needed.</p>
           <div class="field-grid">
             <div class="field">
               <label>Station name</label>
@@ -984,6 +998,90 @@ $('newStationName').addEventListener('input', function(){
 });
 $('newStationId').addEventListener('input', function(){ this.dataset.touched = '1'; });
 
+var editingStationId = null;
+
+function exitEditMode(){
+  editingStationId = null;
+  $('newStationName').value = '';
+  $('newStationId').value = '';
+  $('newStationId').disabled = false;
+  delete $('newStationId').dataset.touched;
+  document.querySelectorAll('#newStationFieldRows tr').forEach(function(tr){
+    tr.querySelectorAll('.ns-live').forEach(function(inp){ inp.value = ''; inp.disabled = false; });
+    tr.querySelector('.ns-manual-toggle').checked = false;
+    var mv = tr.querySelector('.ns-manual-val');
+    mv.value = '';
+    mv.style.display = 'none';
+  });
+  $('addStationFormTitle').textContent = 'Add Station';
+  $('addStationBtn').textContent = 'Save station';
+  $('cancelEditBtn').style.display = 'none';
+}
+$('cancelEditBtn').addEventListener('click', exitEditMode);
+
+function enterEditMode(stationId, name, fields){
+  editingStationId = stationId;
+  $('newStationName').value = name;
+  $('newStationId').value = stationId;
+  $('newStationId').dataset.touched = '1';
+  $('newStationId').disabled = true;
+  document.querySelectorAll('#newStationFieldRows tr').forEach(function(tr){
+    var key = tr.dataset.key;
+    var f = fields[key] || {};
+    var cb = tr.querySelector('.ns-manual-toggle');
+    var mv = tr.querySelector('.ns-manual-val');
+    if(f.manual){
+      cb.checked = true;
+      tr.querySelectorAll('.ns-live').forEach(function(inp){ inp.value = ''; inp.disabled = true; });
+      mv.style.display = 'block';
+      mv.value = (f.defaultValue!==undefined && f.defaultValue!==null) ? f.defaultValue : '';
+    } else {
+      cb.checked = false;
+      tr.querySelectorAll('.ns-live').forEach(function(inp){
+        inp.disabled = false;
+        inp.value = f[inp.dataset.part] || '';
+      });
+      mv.style.display = 'none';
+      mv.value = '';
+    }
+  });
+  $('addStationFormTitle').textContent = 'Edit Station: '+name;
+  $('addStationBtn').textContent = 'Update station';
+  $('cancelEditBtn').style.display = 'inline-block';
+  $('addStationPanel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function loadStationForEdit(stationId){
+  $('addStationStatus').textContent = 'Loading…';
+  $('addStationStatus').style.color = 'var(--text-low)';
+  fetch('/api/health?station='+encodeURIComponent(stationId)).then(function(r){ return r.json(); }).then(function(data){
+    enterEditMode(stationId, data.stationName || stationId, data.fields || {});
+    $('addStationStatus').textContent = '';
+  }).catch(function(err){
+    $('addStationStatus').textContent = 'Error loading station: '+err.message;
+    $('addStationStatus').style.color = 'var(--bad)';
+  });
+}
+
+function renderAllStationsList(list){
+  var rows = '';
+  list.forEach(function(s){
+    rows += '<tr><td class="val">'+s.name+'</td><td>'+s.id+'</td><td><button class="link" data-edit-station="'+s.id+'" type="button">Edit</button></td></tr>';
+  });
+  $('allStationsRows').innerHTML = rows || '<tr><td colspan="3">No stations yet.</td></tr>';
+  document.querySelectorAll('[data-edit-station]').forEach(function(btn){
+    btn.addEventListener('click', function(){ loadStationForEdit(btn.dataset.editStation); });
+  });
+}
+
+function loadAllStationsList(){
+  fetch('/api/stations').then(function(r){ return r.json(); }).then(function(data){
+    renderAllStationsList(data.stations || []);
+  }).catch(function(){
+    $('allStationsRows').innerHTML = '<tr><td colspan="3">Failed to load stations.</td></tr>';
+  });
+}
+
 $('addStationBtn').addEventListener('click', function(){
   var name = $('newStationName').value.trim();
   var id = $('newStationId').value.trim();
@@ -1022,25 +1120,31 @@ $('addStationBtn').addEventListener('click', function(){
     return r.json().then(function(body){ return { ok: r.ok, body: body }; });
   }).then(function(res){
     if(!res.ok){ throw new Error((res.body && res.body.error) || 'Failed to save station'); }
-    $('addStationStatus').textContent = 'Saved — added to the switcher.';
+    var savedId = id;
+    $('addStationStatus').textContent = 'Saved.';
     $('addStationStatus').style.color = 'var(--ok)';
-    $('newStationName').value = '';
-    $('newStationId').value = '';
-    delete $('newStationId').dataset.touched;
-    document.querySelectorAll('#newStationFieldRows tr').forEach(function(tr){
-      tr.querySelectorAll('.ns-live').forEach(function(inp){ inp.value = ''; inp.disabled = false; });
-      tr.querySelector('.ns-manual-toggle').checked = false;
-      var mv = tr.querySelector('.ns-manual-val');
-      mv.value = '';
-      mv.style.display = 'none';
+    exitEditMode();
+    loadAllStationsList();
+    loadStations().then(function(){
+      var sel = $('stationSelect');
+      var found = false;
+      for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value === savedId){ found = true; break; } }
+      if(found){
+        sel.value = savedId;
+        currentStation = savedId;
+        var s = STATIONS.filter(function(x){ return x.id === savedId; })[0];
+        $('stationNameDisplay').textContent = s ? s.name : savedId;
+        pollLiveData();
+        checkHealth(true);
+      }
     });
-    loadStations();
   }).catch(function(err){
     $('addStationStatus').textContent = 'Error: '+err.message;
     $('addStationStatus').style.color = 'var(--bad)';
   });
 });
 
+loadAllStationsList();
 loadStations().then(function(){
   connectLive();
   checkHealth(true);
