@@ -4,25 +4,35 @@ const FIELD_MAP = require('./_fieldMap');
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
 
-  const { INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET, INFLUX_SITE_ID } = process.env;
-  if (!INFLUX_URL || !INFLUX_TOKEN || !INFLUX_ORG || !INFLUX_BUCKET || !INFLUX_SITE_ID) {
+  const { INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET } = process.env;
+  if (!INFLUX_URL || !INFLUX_TOKEN || !INFLUX_ORG || !INFLUX_BUCKET) {
     res.status(500).json({
-      error: 'InfluxDB not configured. Set INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET, INFLUX_SITE_ID as environment variables in the Vercel project settings, then redeploy.',
+      error: 'InfluxDB not configured. Set INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET as environment variables in the Vercel project settings, then redeploy.',
     });
     return;
   }
 
   const queryApi = new InfluxDB({ url: INFLUX_URL, token: INFLUX_TOKEN }).getQueryApi(INFLUX_ORG);
 
-  const measurements = [...new Set(Object.values(FIELD_MAP).map(f => f.measurement))];
-  const fields = [...new Set(Object.values(FIELD_MAP).map(f => f.field))];
+  // Group fields by (measurement, id) — several fields can share a device
+  // (e.g. the three boiler fields), but each device gets its own clause so
+  // a measurement/field name only matches rows from the right device.
+  const groups = new Map();
+  for (const cfg of Object.values(FIELD_MAP)) {
+    const key = cfg.measurement + '|' + cfg.id;
+    if (!groups.has(key)) groups.set(key, { measurement: cfg.measurement, id: cfg.id, fields: new Set() });
+    groups.get(key).fields.add(cfg.field);
+  }
+
+  const clauses = [...groups.values()].map(g => {
+    const fieldMatch = [...g.fields].map(f => `r._field == "${f}"`).join(' or ');
+    return `(r._measurement == "${g.measurement}" and r.id == "${g.id}" and (${fieldMatch}))`;
+  });
 
   const fluxQuery = `
     from(bucket: "${INFLUX_BUCKET}")
       |> range(start: -10m)
-      |> filter(fn: (r) => ${measurements.map(m => `r._measurement == "${m}"`).join(' or ')})
-      |> filter(fn: (r) => ${fields.map(f => `r._field == "${f}"`).join(' or ')})
-      |> filter(fn: (r) => r.id == "${INFLUX_SITE_ID}")
+      |> filter(fn: (r) => ${clauses.join(' or ')})
       |> last()
   `;
 

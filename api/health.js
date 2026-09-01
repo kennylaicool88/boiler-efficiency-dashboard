@@ -3,14 +3,14 @@ const FIELD_MAP = require('./_fieldMap');
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
 
-  const { INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET, INFLUX_SITE_ID } = process.env;
-  const configured = !!(INFLUX_URL && INFLUX_TOKEN && INFLUX_ORG && INFLUX_BUCKET && INFLUX_SITE_ID);
+  const { INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET } = process.env;
+  const configured = !!(INFLUX_URL && INFLUX_TOKEN && INFLUX_ORG && INFLUX_BUCKET);
 
   const base = {
     configured,
     org: configured ? INFLUX_ORG : null,
     bucket: configured ? INFLUX_BUCKET : null,
-    siteId: configured ? INFLUX_SITE_ID : null,
+    deviceIds: [...new Set(Object.values(FIELD_MAP).map(f => f.id))],
     fields: FIELD_MAP,
   };
 
@@ -18,7 +18,7 @@ module.exports = async (req, res) => {
     res.status(200).json({
       ...base,
       influxReachable: null,
-      message: 'Set INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET, INFLUX_SITE_ID as environment variables in the Vercel project settings, then redeploy.',
+      message: 'Set INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET as environment variables in the Vercel project settings, then redeploy.',
     });
     return;
   }

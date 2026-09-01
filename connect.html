@@ -63,15 +63,15 @@ ol{margin-left:18px;font-size:12.5px;color:var(--text-mid);line-height:1.9;}
     <div class="status-row"><span>InfluxDB reachable</span><span class="v" id="s-reachable">checking…</span></div>
     <div class="status-row"><span>Org</span><span class="v" id="s-org">–</span></div>
     <div class="status-row"><span>Bucket</span><span class="v" id="s-bucket">–</span></div>
-    <div class="status-row"><span>Site ID</span><span class="v" id="s-siteid">–</span></div>
+    <div class="status-row"><span>Device IDs</span><span class="v" id="s-deviceids">–</span></div>
     <div style="margin-top:14px;"><button id="checkBtn">Check again</button></div>
   </div>
 
   <div class="panel">
     <div class="panel-head"><span class="dot" style="background:var(--steam);"></span>Mapped Fields</div>
     <table>
-      <thead><tr><th>Dashboard field</th><th>Measurement</th><th>Field</th><th>Unit</th></tr></thead>
-      <tbody id="fieldRows"><tr><td colspan="4">Loading…</td></tr></tbody>
+      <thead><tr><th>Dashboard field</th><th>Measurement</th><th>Field</th><th>Device ID</th><th>Unit</th></tr></thead>
+      <tbody id="fieldRows"><tr><td colspan="5">Loading…</td></tr></tbody>
     </table>
   </div>
 
@@ -80,7 +80,7 @@ ol{margin-left:18px;font-size:12.5px;color:var(--text-mid);line-height:1.9;}
     <p>The InfluxDB token never touches this page or the dashboard — it lives only as a server-side environment variable on Vercel, read by the <code>/api/live-data</code> function.</p>
     <ol>
       <li>In the Vercel dashboard, open this project → <b>Settings → Environment Variables</b>.</li>
-      <li>Add <code>INFLUX_URL</code>, <code>INFLUX_TOKEN</code> (read-only token), <code>INFLUX_ORG</code>, <code>INFLUX_BUCKET</code>, <code>INFLUX_SITE_ID</code> (the <code>id</code> tag identifying this mill).</li>
+      <li>Add <code>INFLUX_URL</code>, <code>INFLUX_TOKEN</code> (read-only token), <code>INFLUX_ORG</code>, <code>INFLUX_BUCKET</code>. Device IDs are set per-field in <code>api/_fieldMap.js</code>, not as env vars.</li>
       <li>Redeploy. This page will show <b>reachable</b> once it's working.</li>
       <li>If field names don't match your InfluxDB tags, edit <code>api/_fieldMap.js</code> in the repo with the real measurement/field names, then push — Vercel redeploys automatically.</li>
     </ol>
@@ -104,15 +104,15 @@ function render(data){
 
   $('s-org').textContent = data.org || '–';
   $('s-bucket').textContent = data.bucket || '–';
-  $('s-siteid').textContent = data.siteId || '–';
+  $('s-deviceids').textContent = (data.deviceIds && data.deviceIds.length) ? data.deviceIds.join(', ') : '–';
   $('statusDot').style.background = data.configured && data.influxReachable ? 'var(--ok)' : (data.configured ? 'var(--bad)' : 'var(--text-low)');
 
   var rows = '';
   Object.keys(data.fields || {}).forEach(function(key){
     var f = data.fields[key];
-    rows += '<tr><td class="val">'+key+'</td><td>'+f.measurement+'</td><td>'+f.field+'</td><td>'+(f.unit||'')+'</td></tr>';
+    rows += '<tr><td class="val">'+key+'</td><td>'+f.measurement+'</td><td>'+f.field+'</td><td>'+f.id+'</td><td>'+(f.unit||'')+'</td></tr>';
   });
-  $('fieldRows').innerHTML = rows || '<tr><td colspan="4">No fields mapped.</td></tr>';
+  $('fieldRows').innerHTML = rows || '<tr><td colspan="5">No fields mapped.</td></tr>';
 }
 
 function check(){

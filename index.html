@@ -579,7 +579,7 @@ recalc();
 // ---- Live data polling (InfluxDB, via /api/live-data on this same Vercel deployment) ----
 var liveTimer = null;
 var liveConnected = false;
-var LIVE_FIELD_IDS = ['steamRate','steamPressure','feedTemp'];
+var LIVE_FIELD_IDS = ['steamRate','steamPressure','feedTemp','elecOutput','exhaustPressure'];
 
 function setLiveStatus(msg, ok){
   $('liveStatus').textContent = msg;
