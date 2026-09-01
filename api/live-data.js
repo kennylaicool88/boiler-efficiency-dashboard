@@ -34,13 +34,28 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // Fields marked `manual` have no InfluxDB source — they're skipped in the
+  // query entirely and never appear in the response, so a manual entry in
+  // the dashboard's Hidden Data panel is never overwritten by a poll.
+  const liveEntries = Object.entries(FIELD_MAP).filter(([, cfg]) => !cfg.manual);
+
+  if (liveEntries.length === 0) {
+    res.status(200).json({
+      _timestamp: new Date().toISOString(),
+      _fieldsFound: 0,
+      _fieldsExpected: 0,
+      _station: station.id,
+    });
+    return;
+  }
+
   const queryApi = new InfluxDB({ url: INFLUX_URL, token: INFLUX_TOKEN }).getQueryApi(INFLUX_ORG);
 
   // Group fields by (measurement, id) — several fields can share a device
   // (e.g. the three boiler fields), but each device gets its own clause so
   // a measurement/field name only matches rows from the right device.
   const groups = new Map();
-  for (const cfg of Object.values(FIELD_MAP)) {
+  for (const [, cfg] of liveEntries) {
     const key = cfg.measurement + '|' + cfg.id;
     if (!groups.has(key)) groups.set(key, { measurement: cfg.measurement, id: cfg.id, fields: new Set() });
     groups.get(key).fields.add(cfg.field);
@@ -72,13 +87,13 @@ module.exports = async (req, res) => {
     });
 
     const output = {};
-    for (const [dashKey, cfg] of Object.entries(FIELD_MAP)) {
+    for (const [dashKey, cfg] of liveEntries) {
       if (raw[cfg.field] !== undefined) output[dashKey] = raw[cfg.field];
     }
     const fieldsFound = Object.keys(output).length;
     output._timestamp = new Date().toISOString();
     output._fieldsFound = fieldsFound;
-    output._fieldsExpected = Object.keys(FIELD_MAP).length;
+    output._fieldsExpected = liveEntries.length;
     output._station = station.id;
 
     res.status(200).json(output);

@@ -315,6 +315,7 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
 }
 .table-input:hover{border-color:var(--steam-dim);}
 .table-input:focus{border-color:var(--steam);}
+.table-input:disabled{opacity:.35;cursor:not-allowed;}
 </style>
 </head>
 <body>
@@ -541,7 +542,7 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
             </div>
           </div>
           <table class="settings-table" style="margin-top:6px;">
-            <thead><tr><th>Dashboard field</th><th>Measurement</th><th>Field</th><th>Device ID</th></tr></thead>
+            <thead><tr><th>Dashboard field</th><th>Measurement</th><th>Field</th><th>Device ID</th><th>No live source?</th></tr></thead>
             <tbody id="newStationFieldRows"></tbody>
           </table>
           <div style="margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -660,7 +661,7 @@ $('stationSelect').addEventListener('change', function(){
   $('stationNameDisplay').textContent = s ? s.name : currentStation;
   setLiveStatus('Switching station…', null);
   pollLiveData();
-  checkHealth();
+  checkHealth(true);
 });
 
 function withStation(baseUrl){
@@ -910,20 +911,36 @@ function renderHealth(data){
   var rows = '';
   Object.keys(data.fields || {}).forEach(function(key){
     var f = data.fields[key];
-    rows += '<tr><td class="val">'+key+'</td><td>'+f.measurement+'</td><td>'+f.field+'</td><td>'+f.id+'</td><td>'+(f.unit||'')+'</td></tr>';
+    if(f.manual){
+      var est = (f.defaultValue!==undefined && f.defaultValue!==null) ? (' — estimate '+f.defaultValue+' '+(f.unit||'')) : '';
+      rows += '<tr><td class="val">'+key+'</td><td colspan="3" style="color:var(--text-low);">Manual entry'+est+'</td><td>'+(f.unit||'')+'</td></tr>';
+    } else {
+      rows += '<tr><td class="val">'+key+'</td><td>'+f.measurement+'</td><td>'+f.field+'</td><td>'+f.id+'</td><td>'+(f.unit||'')+'</td></tr>';
+    }
   });
   $('fieldRows').innerHTML = rows || '<tr><td colspan="5">No fields mapped.</td></tr>';
 }
 
-function checkHealth(){
+function checkHealth(applyDefaults){
   $('s-configured').textContent = 'checking…';
   $('s-reachable').textContent = 'checking…';
-  fetch(withStation('/api/health')).then(function(r){ return r.json(); }).then(renderHealth).catch(function(err){
+  fetch(withStation('/api/health')).then(function(r){ return r.json(); }).then(function(data){
+    renderHealth(data);
+    if(applyDefaults){
+      Object.keys(data.fields || {}).forEach(function(key){
+        var f = data.fields[key];
+        if(f && f.manual && f.defaultValue!==undefined && f.defaultValue!==null && $(key)){
+          $(key).value = f.defaultValue;
+        }
+      });
+      recalc();
+    }
+  }).catch(function(err){
     $('s-configured').textContent = 'error';
     $('s-reachable').textContent = err.message;
   });
 }
-$('checkBtn').addEventListener('click', checkHealth);
+$('checkBtn').addEventListener('click', function(){ checkHealth(false); });
 
 // ---- Settings tab: Add Station form ----
 var NEW_STATION_FIELD_LABELS = {
@@ -936,14 +953,28 @@ var NEW_STATION_FIELD_LABELS = {
 (function(){
   var rows = '';
   Object.keys(NEW_STATION_FIELD_LABELS).forEach(function(key){
-    rows += '<tr>'+
+    rows += '<tr data-key="'+key+'">'+
       '<td class="val">'+NEW_STATION_FIELD_LABELS[key]+'</td>'+
-      '<td><input type="text" class="table-input" data-field="'+key+'" data-part="measurement" placeholder="measurement"></td>'+
-      '<td><input type="text" class="table-input" data-field="'+key+'" data-part="field" placeholder="field"></td>'+
-      '<td><input type="text" class="table-input" data-field="'+key+'" data-part="id" placeholder="device id"></td>'+
+      '<td><input type="text" class="table-input ns-live" data-part="measurement" placeholder="measurement"></td>'+
+      '<td><input type="text" class="table-input ns-live" data-part="field" placeholder="field"></td>'+
+      '<td><input type="text" class="table-input ns-live" data-part="id" placeholder="device id"></td>'+
+      '<td style="white-space:nowrap;">'+
+        '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-mid);">'+
+          '<input type="checkbox" class="ns-manual-toggle">Manual'+
+        '</label>'+
+        '<input type="number" class="table-input ns-manual-val" data-part="defaultValue" placeholder="estimate" style="margin-top:5px;display:none;">'+
+      '</td>'+
     '</tr>';
   });
   $('newStationFieldRows').innerHTML = rows;
+
+  document.querySelectorAll('.ns-manual-toggle').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      var tr = cb.closest('tr');
+      tr.querySelectorAll('.ns-live').forEach(function(inp){ inp.disabled = cb.checked; inp.value = ''; });
+      tr.querySelector('.ns-manual-val').style.display = cb.checked ? 'block' : 'none';
+    });
+  });
 })();
 
 $('newStationName').addEventListener('input', function(){
@@ -957,16 +988,26 @@ $('addStationBtn').addEventListener('click', function(){
   var name = $('newStationName').value.trim();
   var id = $('newStationId').value.trim();
   var fields = {};
-  var missing = false;
-  document.querySelectorAll('#newStationFieldRows input').forEach(function(inp){
-    var key = inp.dataset.field, part = inp.dataset.part;
-    if(!fields[key]) fields[key] = {};
-    fields[key][part] = inp.value.trim();
-    if(!inp.value.trim()) missing = true;
+  var ok = true;
+
+  document.querySelectorAll('#newStationFieldRows tr').forEach(function(tr){
+    var key = tr.dataset.key;
+    var isManual = tr.querySelector('.ns-manual-toggle').checked;
+    if(isManual){
+      var est = tr.querySelector('.ns-manual-val').value.trim();
+      fields[key] = { manual: true };
+      if(est !== '') fields[key].defaultValue = parseFloat(est);
+    } else {
+      var measurement = tr.querySelector('[data-part="measurement"]').value.trim();
+      var field = tr.querySelector('[data-part="field"]').value.trim();
+      var devId = tr.querySelector('[data-part="id"]').value.trim();
+      if(!measurement || !field || !devId){ ok = false; }
+      fields[key] = { measurement: measurement, field: field, id: devId };
+    }
   });
 
-  if(!name || !id || missing){
-    $('addStationStatus').textContent = 'Fill in all fields first.';
+  if(!name || !id || !ok){
+    $('addStationStatus').textContent = 'Fill in all fields first (or mark them Manual).';
     $('addStationStatus').style.color = 'var(--bad)';
     return;
   }
@@ -986,7 +1027,13 @@ $('addStationBtn').addEventListener('click', function(){
     $('newStationName').value = '';
     $('newStationId').value = '';
     delete $('newStationId').dataset.touched;
-    document.querySelectorAll('#newStationFieldRows input').forEach(function(inp){ inp.value = ''; });
+    document.querySelectorAll('#newStationFieldRows tr').forEach(function(tr){
+      tr.querySelectorAll('.ns-live').forEach(function(inp){ inp.value = ''; inp.disabled = false; });
+      tr.querySelector('.ns-manual-toggle').checked = false;
+      var mv = tr.querySelector('.ns-manual-val');
+      mv.value = '';
+      mv.style.display = 'none';
+    });
     loadStations();
   }).catch(function(err){
     $('addStationStatus').textContent = 'Error: '+err.message;
@@ -996,7 +1043,7 @@ $('addStationBtn').addEventListener('click', function(){
 
 loadStations().then(function(){
   connectLive();
-  checkHealth();
+  checkHealth(true);
 });
 </script>
 </body>

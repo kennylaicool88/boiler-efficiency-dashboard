@@ -36,7 +36,7 @@ module.exports = async (req, res) => {
     stationName: station ? station.name : null,
     org: configured ? INFLUX_ORG : null,
     bucket: configured ? INFLUX_BUCKET : null,
-    deviceIds: [...new Set(Object.values(FIELD_MAP).map((f) => f.id))],
+    deviceIds: [...new Set(Object.values(FIELD_MAP).filter((f) => !f.manual).map((f) => f.id))],
     fields: FIELD_MAP,
   };
 

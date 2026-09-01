@@ -48,9 +48,18 @@ module.exports = async (req, res) => {
 
       const fields = {};
       for (const key of FIELD_KEYS) {
-        const f = fieldsIn[key];
-        if (!f || !f.measurement || !f.field || !f.id) {
-          res.status(400).json({ error: `Missing measurement/field/id for "${key}".` });
+        const f = fieldsIn[key] || {};
+        if (f.manual) {
+          const entry = { manual: true, unit: UNITS[key] };
+          if (f.defaultValue !== undefined && f.defaultValue !== null && f.defaultValue !== '') {
+            const num = Number(f.defaultValue);
+            if (!Number.isNaN(num)) entry.defaultValue = num;
+          }
+          fields[key] = entry;
+          continue;
+        }
+        if (!f.measurement || !f.field || !f.id) {
+          res.status(400).json({ error: `Missing measurement/field/id for "${key}" (or mark it as manual).` });
           return;
         }
         fields[key] = {
