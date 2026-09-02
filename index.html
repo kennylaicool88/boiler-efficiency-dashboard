@@ -1245,10 +1245,12 @@ function drawHistoryChart(hourly){
     svgHtml += '<text x="'+(padL-8)+'" y="'+(y+4)+'" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#5F7A8F">'+pct+'</text>';
   });
 
+  svgHtml += '<line x1="'+padL+'" y1="'+(H-padB)+'" x2="'+(W-padR)+'" y2="'+(H-padB)+'" stroke="var(--line)" stroke-width="1"/>';
+
   hourly.forEach(function(pt,i){
     if(i%3===0){
       var x = xAt(i);
-      svgHtml += '<text x="'+x+'" y="'+(H-padB+16)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#5F7A8F">'+(pt.hour<10?'0':'')+pt.hour+'</text>';
+      svgHtml += '<text x="'+x+'" y="'+(H-padB+16)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#5F7A8F">'+pt.hour+':00</text>';
     }
   });
 
@@ -1265,17 +1267,28 @@ function drawHistoryChart(hourly){
     return d;
   }
 
-  svgHtml += '<path d="'+buildPath('boilerEffAvg')+'" fill="none" stroke="var(--steam)" stroke-width="2"/>';
-  svgHtml += '<path d="'+buildPath('chpEffAvg')+'" fill="none" stroke="var(--ok)" stroke-width="2"/>';
+  svgHtml += '<path d="'+buildPath('boilerEffAvg')+'" fill="none" stroke="var(--steam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+  svgHtml += '<path d="'+buildPath('chpEffAvg')+'" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+
+  // When both series land within a few px of each other, the later marker
+  // fully occludes the earlier one — nudge them apart horizontally so both
+  // colors stay visible instead of silently hiding the Boiler dot.
+  var DODGE_PX = 10, DODGE_OFFSET = 4;
 
   hourly.forEach(function(pt,i){
     var x = xAt(i);
-    var label = (pt.hour<10?'0':'')+pt.hour+':00';
-    if(pt.boilerEffAvg!==null && pt.boilerEffAvg!==undefined){
-      svgHtml += '<circle cx="'+x+'" cy="'+yAt(pt.boilerEffAvg)+'" r="3" style="fill:var(--steam);"><title>'+label+' — Boiler '+pt.boilerEffAvg.toFixed(1)+'% ('+pt.samples+' samples)</title></circle>';
+    var hasBoiler = pt.boilerEffAvg!==null && pt.boilerEffAvg!==undefined;
+    var hasChp = pt.chpEffAvg!==null && pt.chpEffAvg!==undefined;
+    var label = pt.hour+':00';
+    var dxB = 0, dxC = 0;
+    if(hasBoiler && hasChp && Math.abs(yAt(pt.boilerEffAvg)-yAt(pt.chpEffAvg)) < DODGE_PX){
+      dxB = -DODGE_OFFSET; dxC = DODGE_OFFSET;
     }
-    if(pt.chpEffAvg!==null && pt.chpEffAvg!==undefined){
-      svgHtml += '<circle cx="'+x+'" cy="'+yAt(pt.chpEffAvg)+'" r="3" style="fill:var(--ok);"><title>'+label+' — CHP '+pt.chpEffAvg.toFixed(1)+'% ('+pt.samples+' samples)</title></circle>';
+    if(hasBoiler){
+      svgHtml += '<circle cx="'+(x+dxB)+'" cy="'+yAt(pt.boilerEffAvg)+'" r="4" fill="var(--steam)" stroke="var(--bg-panel)" stroke-width="2"><title>'+label+' — Boiler '+pt.boilerEffAvg.toFixed(1)+'% ('+pt.samples+' samples)</title></circle>';
+    }
+    if(hasChp){
+      svgHtml += '<circle cx="'+(x+dxC)+'" cy="'+yAt(pt.chpEffAvg)+'" r="4" fill="var(--ok)" stroke="var(--bg-panel)" stroke-width="2"><title>'+label+' — CHP '+pt.chpEffAvg.toFixed(1)+'% ('+pt.samples+' samples)</title></circle>';
     }
   });
 
