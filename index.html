@@ -179,6 +179,17 @@ a.link,button.link{
 }
 a.link:hover,button.link:hover{color:var(--steam);border-bottom-color:var(--steam);}
 
+.history-legend-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  background:none;border:1px solid transparent;border-radius:3px;padding:3px 8px;margin:-3px 0;
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-mid);cursor:pointer;
+  transition:background-color .15s ease,border-color .15s ease,opacity .15s ease;
+}
+.history-legend-btn .swatch{width:12px;height:2px;display:inline-block;}
+.history-legend-btn:hover{background:var(--bg-panel-alt);border-color:var(--line-soft);}
+.history-legend-btn.is-dim{opacity:.4;}
+.history-legend-btn.is-active{background:var(--bg-panel-alt);border-color:var(--line-soft);color:var(--text-hi);}
+
 .field{margin-bottom:13px;}
 .field:last-child{margin-bottom:0;}
 .field label{
@@ -663,9 +674,13 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
             <span class="spacer"></span>
             <span class="unit" id="historyStatus" style="text-transform:none;">Loading…</span>
           </div>
-          <div style="display:flex;gap:16px;align-items:center;margin-bottom:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-mid);">
-            <span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:12px;height:2px;background:var(--steam);display:inline-block;"></span>Boiler</span>
-            <span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:12px;height:2px;background:var(--ok);display:inline-block;"></span>CHP</span>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+            <button type="button" class="history-legend-btn" id="historyLegendBoiler" data-series="boiler">
+              <span class="swatch" style="background:var(--steam);"></span>Boiler
+            </button>
+            <button type="button" class="history-legend-btn" id="historyLegendChp" data-series="chp">
+              <span class="swatch" style="background:var(--ok);"></span>CHP
+            </button>
           </div>
           <div style="overflow-x:auto;">
             <svg id="historyChart" viewBox="0 0 760 300" style="width:100%;min-width:600px;height:auto;"></svg>
@@ -1226,7 +1241,32 @@ $('addStationBtn').addEventListener('click', function(){
 });
 
 // ---- History: hourly chart + daily table ----
+var historyLastHourly = [];
+var historySeriesFilter = 'both'; // 'both' | 'boiler' | 'chp'
+
+function updateHistoryLegendUI(){
+  var bBtn = $('historyLegendBoiler'), cBtn = $('historyLegendChp');
+  bBtn.classList.toggle('is-active', historySeriesFilter==='boiler');
+  bBtn.classList.toggle('is-dim', historySeriesFilter==='chp');
+  cBtn.classList.toggle('is-active', historySeriesFilter==='chp');
+  cBtn.classList.toggle('is-dim', historySeriesFilter==='boiler');
+}
+
+$('historyLegendBoiler').addEventListener('click', function(){
+  historySeriesFilter = (historySeriesFilter==='boiler') ? 'both' : 'boiler';
+  updateHistoryLegendUI();
+  drawHistoryChart(historyLastHourly);
+});
+$('historyLegendChp').addEventListener('click', function(){
+  historySeriesFilter = (historySeriesFilter==='chp') ? 'both' : 'chp';
+  updateHistoryLegendUI();
+  drawHistoryChart(historyLastHourly);
+});
+
 function drawHistoryChart(hourly){
+  historyLastHourly = hourly;
+  var showBoiler = historySeriesFilter!=='chp';
+  var showChp = historySeriesFilter!=='boiler';
   var svg = $('historyChart');
   var W = 760, H = 300;
   var padL = 36, padR = 16, padT = 16, padB = 30;
@@ -1267,18 +1307,19 @@ function drawHistoryChart(hourly){
     return d;
   }
 
-  svgHtml += '<path d="'+buildPath('boilerEffAvg')+'" fill="none" stroke="var(--steam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-  svgHtml += '<path d="'+buildPath('chpEffAvg')+'" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+  if(showBoiler) svgHtml += '<path d="'+buildPath('boilerEffAvg')+'" fill="none" stroke="var(--steam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+  if(showChp) svgHtml += '<path d="'+buildPath('chpEffAvg')+'" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
 
-  // When both series land within a few px of each other, the later marker
-  // fully occludes the earlier one — nudge them apart horizontally so both
-  // colors stay visible instead of silently hiding the Boiler dot.
+  // When both series are shown and land within a few px of each other, the
+  // later marker fully occludes the earlier one — nudge them apart
+  // horizontally so both colors stay visible instead of silently hiding
+  // the Boiler dot.
   var DODGE_PX = 10, DODGE_OFFSET = 4;
 
   hourly.forEach(function(pt,i){
     var x = xAt(i);
-    var hasBoiler = pt.boilerEffAvg!==null && pt.boilerEffAvg!==undefined;
-    var hasChp = pt.chpEffAvg!==null && pt.chpEffAvg!==undefined;
+    var hasBoiler = showBoiler && pt.boilerEffAvg!==null && pt.boilerEffAvg!==undefined;
+    var hasChp = showChp && pt.chpEffAvg!==null && pt.chpEffAvg!==undefined;
     var label = pt.hour+':00';
     var dxB = 0, dxC = 0;
     if(hasBoiler && hasChp && Math.abs(yAt(pt.boilerEffAvg)-yAt(pt.chpEffAvg)) < DODGE_PX){
