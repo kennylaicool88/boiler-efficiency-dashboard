@@ -1288,10 +1288,8 @@ function drawHistoryChart(hourly){
   svgHtml += '<line x1="'+padL+'" y1="'+(H-padB)+'" x2="'+(W-padR)+'" y2="'+(H-padB)+'" stroke="var(--line)" stroke-width="1"/>';
 
   hourly.forEach(function(pt,i){
-    if(i%3===0){
-      var x = xAt(i);
-      svgHtml += '<text x="'+x+'" y="'+(H-padB+16)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#5F7A8F">'+pt.hour+':00</text>';
-    }
+    var x = xAt(i);
+    svgHtml += '<text x="'+x+'" y="'+(H-padB+16)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#5F7A8F">'+pt.hour+':00</text>';
   });
 
   function buildPath(key){
