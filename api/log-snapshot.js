@@ -35,6 +35,16 @@ module.exports = async (req, res) => {
   for (const station of stations) {
     try {
       const { output } = await queryStationFields(station.fields);
+
+      // Manual fields never come from InfluxDB — queryStationFields skips
+      // them entirely, so fill in the stored estimate here. Without this,
+      // a manual field silently computes as 0 instead of its estimate.
+      Object.entries(station.fields || {}).forEach(([key, cfg]) => {
+        if (cfg.manual && output[key] === undefined && cfg.defaultValue !== undefined && cfg.defaultValue !== null) {
+          output[key] = cfg.defaultValue;
+        }
+      });
+
       const eff = computeEfficiency(station.fuel_profile, output);
       rows.push({
         station_id: station.id,
