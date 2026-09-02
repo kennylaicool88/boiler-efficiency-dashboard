@@ -1,5 +1,7 @@
 name: Log efficiency snapshot
 
+# Re-saved to re-register the schedule trigger with GitHub's cron
+# scheduler after it failed to fire for 2+ hours post-creation.
 on:
   schedule:
     - cron: '*/5 * * * *'
