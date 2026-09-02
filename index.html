@@ -1297,6 +1297,11 @@ function drawHistoryChart(hourly){
 
   var svgHtml = '';
 
+  hourly.forEach(function(pt,i){
+    var x = xAt(i);
+    svgHtml += '<line x1="'+x+'" y1="'+padT+'" x2="'+x+'" y2="'+(H-padB)+'" stroke="#1B3A54" stroke-width="1"/>';
+  });
+
   [0,25,50,75,100].forEach(function(pct){
     var y = yAt(pct);
     svgHtml += '<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="#1B3A54" stroke-width="1"/>';
