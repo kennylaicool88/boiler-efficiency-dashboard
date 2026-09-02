@@ -38,6 +38,7 @@ module.exports = async (req, res) => {
     bucket: configured ? INFLUX_BUCKET : null,
     deviceIds: [...new Set(Object.values(FIELD_MAP).filter((f) => !f.manual).map((f) => f.id))],
     fields: FIELD_MAP,
+    fuelProfile: station ? station.fuel_profile || null : null,
   };
 
   if (!station) {

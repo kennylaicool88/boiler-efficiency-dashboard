@@ -1,5 +1,6 @@
-// Shared by api/stations.js, api/live-data.js, and api/health.js.
-// Underscore prefix keeps Vercel from treating this as its own route.
+// Shared by api/stations.js, api/live-data.js, api/health.js, and
+// api/log-snapshot.js. Underscore prefix keeps Vercel from treating this
+// as its own route.
 //
 // Talks to Supabase's auto-generated REST API (PostgREST) directly via
 // fetch — no SDK needed for the handful of operations this app does.
@@ -36,8 +37,13 @@ function listStations() {
   return restRequest('stations?select=id,name,fields&order=name.asc');
 }
 
+// Full station rows (including fuel_profile) for the background logger.
+function listStationsFull() {
+  return restRequest('stations?select=id,name,fields,fuel_profile&order=name.asc');
+}
+
 function getStation(id) {
-  return restRequest(`stations?id=eq.${encodeURIComponent(id)}&select=id,name,fields`).then(
+  return restRequest(`stations?id=eq.${encodeURIComponent(id)}&select=id,name,fields,fuel_profile`).then(
     (rows) => rows[0] || null
   );
 }
@@ -46,7 +52,7 @@ function getStation(id) {
 // (alphabetically by name) when no id is given.
 async function getStationOrDefault(id) {
   if (id) return getStation(id);
-  const rows = await restRequest('stations?select=id,name,fields&order=name.asc&limit=1');
+  const rows = await restRequest('stations?select=id,name,fields,fuel_profile&order=name.asc&limit=1');
   return rows[0] || null;
 }
 
@@ -58,4 +64,27 @@ function upsertStation(station) {
   });
 }
 
-module.exports = { configured, listStations, getStation, getStationOrDefault, upsertStation };
+function insertLogRows(rows) {
+  return restRequest('efficiency_log', {
+    method: 'POST',
+    headers: { Prefer: 'return=minimal' },
+    body: rows,
+  });
+}
+
+function listLogRows(stationId, sinceISO) {
+  return restRequest(
+    `efficiency_log?station_id=eq.${encodeURIComponent(stationId)}&ts=gte.${encodeURIComponent(sinceISO)}&select=ts,boiler_eff,chp_eff&order=ts.asc`
+  );
+}
+
+module.exports = {
+  configured,
+  listStations,
+  listStationsFull,
+  getStation,
+  getStationOrDefault,
+  upsertStation,
+  insertLogRows,
+  listLogRows,
+};

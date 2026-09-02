@@ -8,6 +8,7 @@ const UNITS = {
   elecOutput: 'kW',
   exhaustPressure: 'bar g',
 };
+const FUEL_KEYS = ['ffb', 'fibrePct', 'fibreGcv', 'shellPct', 'shellGcv', 'efbPct', 'efbGcv'];
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
@@ -70,7 +71,19 @@ module.exports = async (req, res) => {
         };
       }
 
-      const rows = await upsertStation({ id, name, fields });
+      const stationRow = { id, name, fields };
+
+      const fuelIn = body.fuelProfile;
+      if (fuelIn && typeof fuelIn === 'object') {
+        const fuelProfile = {};
+        for (const key of FUEL_KEYS) {
+          const num = Number(fuelIn[key]);
+          fuelProfile[key] = Number.isFinite(num) ? num : 0;
+        }
+        stationRow.fuel_profile = fuelProfile;
+      }
+
+      const rows = await upsertStation(stationRow);
       res.status(200).json({ station: rows[0] });
     } catch (err) {
       console.error(err);

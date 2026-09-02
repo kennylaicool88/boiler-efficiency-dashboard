@@ -332,6 +332,7 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
     <button class="nav-item" data-section="live" type="button"><span class="nav-dot"></span>Live Data Feed</button>
     <button class="nav-item" data-section="settings" type="button"><span class="nav-dot"></span>Settings</button>
     <button class="nav-item" data-section="hidden" type="button"><span class="nav-dot"></span>Hidden Data</button>
+    <button class="nav-item" data-section="history" type="button"><span class="nav-dot"></span>History</button>
   </nav>
 
   <div class="content">
@@ -559,6 +560,39 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
             <thead><tr><th>Dashboard field</th><th>Measurement</th><th>Field</th><th>Device ID</th><th>No live source?</th></tr></thead>
             <tbody id="newStationFieldRows"></tbody>
           </table>
+
+          <div style="font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-mid);margin:18px 0 4px;">Fuel Profile <span class="feeds-tag">used for background efficiency logging — not live-fed</span></div>
+          <div class="field-grid">
+            <div class="field">
+              <label>FFB throughput <span class="unit">t/hr</span></label>
+              <input type="number" id="fpFfb" step="1" min="0" value="60">
+            </div>
+            <div class="field">
+              <label>Fibre yield <span class="unit">% of FFB</span></label>
+              <input type="number" id="fpFibrePct" step="0.5" min="0" value="12">
+            </div>
+            <div class="field">
+              <label>Fibre GCV <span class="unit">kJ/kg</span></label>
+              <input type="number" id="fpFibreGcv" step="50" min="0" value="10750">
+            </div>
+            <div class="field">
+              <label>Shell yield <span class="unit">% of FFB</span></label>
+              <input type="number" id="fpShellPct" step="0.5" min="0" value="5">
+            </div>
+            <div class="field">
+              <label>Shell GCV <span class="unit">kJ/kg</span></label>
+              <input type="number" id="fpShellGcv" step="50" min="0" value="15500">
+            </div>
+            <div class="field">
+              <label>EFB yield <span class="unit">% of FFB</span></label>
+              <input type="number" id="fpEfbPct" step="0.5" min="0" value="0">
+            </div>
+            <div class="field">
+              <label>EFB GCV <span class="unit">kJ/kg</span></label>
+              <input type="number" id="fpEfbGcv" step="50" min="0" value="8000">
+            </div>
+          </div>
+
           <div style="margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <button id="addStationBtn" class="btn-primary" type="button">Save station</button>
             <span id="addStationStatus" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--text-low);"></span>
@@ -621,6 +655,32 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
         </div>
       </section>
 
+      <!-- ================= HISTORY ================= -->
+      <section class="app-section" id="section-history">
+        <div class="panel">
+          <div class="panel-head">
+            <span class="dot"></span>Efficiency History
+            <span class="spacer"></span>
+            <span class="unit" id="historyStatus" style="text-transform:none;">Loading…</span>
+          </div>
+          <div style="display:flex;gap:16px;align-items:center;margin-bottom:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-mid);">
+            <span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:12px;height:2px;background:var(--steam);display:inline-block;"></span>Boiler</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:12px;height:2px;background:var(--ok);display:inline-block;"></span>CHP</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <svg id="historyChart" viewBox="0 0 760 300" style="width:100%;min-width:600px;height:auto;"></svg>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:18px;">
+          <div class="panel-head"><span class="dot" style="background:var(--steam);"></span>Daily Averages <span class="unit" style="text-transform:none;">— click a day to view its hourly chart above</span></div>
+          <table class="settings-table">
+            <thead><tr><th>Cycle day (07:00–06:59)</th><th>Boiler avg</th><th>CHP avg</th><th>Samples</th></tr></thead>
+            <tbody id="historyDailyRows"><tr><td colspan="4">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
     </div>
   </div>
 </div>
@@ -635,7 +695,10 @@ function switchSection(name){
   document.querySelectorAll('.nav-item').forEach(function(b){ b.classList.toggle('active', b.dataset.section === name); });
 }
 document.querySelectorAll('.nav-item').forEach(function(b){
-  b.addEventListener('click', function(){ switchSection(b.dataset.section); });
+  b.addEventListener('click', function(){
+    switchSection(b.dataset.section);
+    if(b.dataset.section === 'history'){ loadHistory(); }
+  });
 });
 $('topbarLiveChip').addEventListener('click', function(){ switchSection('live'); });
 $('gotoSettingsLink').addEventListener('click', function(){ switchSection('settings'); });
@@ -676,6 +739,7 @@ $('stationSelect').addEventListener('change', function(){
   setLiveStatus('Switching station…', null);
   pollLiveData();
   checkHealth(true);
+  if(document.getElementById('section-history').classList.contains('active')){ loadHistory(); }
 });
 
 function withStation(baseUrl){
@@ -999,6 +1063,16 @@ $('newStationName').addEventListener('input', function(){
 $('newStationId').addEventListener('input', function(){ this.dataset.touched = '1'; });
 
 var editingStationId = null;
+var FUEL_PROFILE_DEFAULTS = { fpFfb:60, fpFibrePct:12, fpFibreGcv:10750, fpShellPct:5, fpShellGcv:15500, fpEfbPct:0, fpEfbGcv:8000 };
+var FUEL_PROFILE_KEYS = { fpFfb:'ffb', fpFibrePct:'fibrePct', fpFibreGcv:'fibreGcv', fpShellPct:'shellPct', fpShellGcv:'shellGcv', fpEfbPct:'efbPct', fpEfbGcv:'efbGcv' };
+
+function resetFuelProfileInputs(profile){
+  Object.keys(FUEL_PROFILE_KEYS).forEach(function(inputId){
+    var key = FUEL_PROFILE_KEYS[inputId];
+    var val = profile && profile[key] !== undefined && profile[key] !== null ? profile[key] : FUEL_PROFILE_DEFAULTS[inputId];
+    $(inputId).value = val;
+  });
+}
 
 function exitEditMode(){
   editingStationId = null;
@@ -1013,13 +1087,14 @@ function exitEditMode(){
     mv.value = '';
     mv.style.display = 'none';
   });
+  resetFuelProfileInputs(null);
   $('addStationFormTitle').textContent = 'Add Station';
   $('addStationBtn').textContent = 'Save station';
   $('cancelEditBtn').style.display = 'none';
 }
 $('cancelEditBtn').addEventListener('click', exitEditMode);
 
-function enterEditMode(stationId, name, fields){
+function enterEditMode(stationId, name, fields, fuelProfile){
   editingStationId = stationId;
   $('newStationName').value = name;
   $('newStationId').value = stationId;
@@ -1045,6 +1120,7 @@ function enterEditMode(stationId, name, fields){
       mv.value = '';
     }
   });
+  resetFuelProfileInputs(fuelProfile);
   $('addStationFormTitle').textContent = 'Edit Station: '+name;
   $('addStationBtn').textContent = 'Update station';
   $('cancelEditBtn').style.display = 'inline-block';
@@ -1055,7 +1131,7 @@ function loadStationForEdit(stationId){
   $('addStationStatus').textContent = 'Loading…';
   $('addStationStatus').style.color = 'var(--text-low)';
   fetch('/api/health?station='+encodeURIComponent(stationId)).then(function(r){ return r.json(); }).then(function(data){
-    enterEditMode(stationId, data.stationName || stationId, data.fields || {});
+    enterEditMode(stationId, data.stationName || stationId, data.fields || {}, data.fuelProfile || null);
     $('addStationStatus').textContent = '';
   }).catch(function(err){
     $('addStationStatus').textContent = 'Error loading station: '+err.message;
@@ -1110,12 +1186,17 @@ $('addStationBtn').addEventListener('click', function(){
     return;
   }
 
+  var fuelProfile = {};
+  Object.keys(FUEL_PROFILE_KEYS).forEach(function(inputId){
+    fuelProfile[FUEL_PROFILE_KEYS[inputId]] = parseFloat($(inputId).value) || 0;
+  });
+
   $('addStationStatus').textContent = 'Saving…';
   $('addStationStatus').style.color = 'var(--text-low)';
   fetch('/api/stations', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ id: id, name: name, fields: fields })
+    body: JSON.stringify({ id: id, name: name, fields: fields, fuelProfile: fuelProfile })
   }).then(function(r){
     return r.json().then(function(body){ return { ok: r.ok, body: body }; });
   }).then(function(res){
@@ -1143,6 +1224,91 @@ $('addStationBtn').addEventListener('click', function(){
     $('addStationStatus').style.color = 'var(--bad)';
   });
 });
+
+// ---- History: hourly chart + daily table ----
+function drawHistoryChart(hourly){
+  var svg = $('historyChart');
+  var W = 760, H = 300;
+  var padL = 36, padR = 16, padT = 16, padB = 30;
+  var plotW = W - padL - padR;
+  var plotH = H - padT - padB;
+  var n = hourly.length || 24;
+
+  function xAt(i){ return padL + (plotW * i / (n-1)); }
+  function yAt(pct){ return padT + plotH - (plotH * pct / 100); }
+
+  var svgHtml = '';
+
+  [0,25,50,75,100].forEach(function(pct){
+    var y = yAt(pct);
+    svgHtml += '<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="#1B3A54" stroke-width="1"/>';
+    svgHtml += '<text x="'+(padL-8)+'" y="'+(y+4)+'" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#5F7A8F">'+pct+'</text>';
+  });
+
+  hourly.forEach(function(pt,i){
+    if(i%3===0){
+      var x = xAt(i);
+      svgHtml += '<text x="'+x+'" y="'+(H-padB+16)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#5F7A8F">'+(pt.hour<10?'0':'')+pt.hour+'</text>';
+    }
+  });
+
+  function buildPath(key){
+    var d = '';
+    var open = false;
+    hourly.forEach(function(pt,i){
+      var v = pt[key];
+      if(v===null || v===undefined){ open=false; return; }
+      var x = xAt(i), y = yAt(v);
+      d += (open?'L':'M')+x+' '+y+' ';
+      open = true;
+    });
+    return d;
+  }
+
+  svgHtml += '<path d="'+buildPath('boilerEffAvg')+'" fill="none" stroke="var(--steam)" stroke-width="2"/>';
+  svgHtml += '<path d="'+buildPath('chpEffAvg')+'" fill="none" stroke="var(--ok)" stroke-width="2"/>';
+
+  hourly.forEach(function(pt,i){
+    var x = xAt(i);
+    var label = (pt.hour<10?'0':'')+pt.hour+':00';
+    if(pt.boilerEffAvg!==null && pt.boilerEffAvg!==undefined){
+      svgHtml += '<circle cx="'+x+'" cy="'+yAt(pt.boilerEffAvg)+'" r="3" style="fill:var(--steam);"><title>'+label+' — Boiler '+pt.boilerEffAvg.toFixed(1)+'% ('+pt.samples+' samples)</title></circle>';
+    }
+    if(pt.chpEffAvg!==null && pt.chpEffAvg!==undefined){
+      svgHtml += '<circle cx="'+x+'" cy="'+yAt(pt.chpEffAvg)+'" r="3" style="fill:var(--ok);"><title>'+label+' — CHP '+pt.chpEffAvg.toFixed(1)+'% ('+pt.samples+' samples)</title></circle>';
+    }
+  });
+
+  svg.innerHTML = svgHtml;
+}
+
+function renderDailyTable(daily){
+  var rows = '';
+  daily.slice().reverse().forEach(function(d){
+    rows += '<tr class="history-day-row" data-day="'+d.day+'" style="cursor:pointer;">'+
+      '<td class="val">'+d.day+'</td>'+
+      '<td>'+(d.boilerEffAvg!==null?d.boilerEffAvg.toFixed(1)+'%':'–')+'</td>'+
+      '<td>'+(d.chpEffAvg!==null?d.chpEffAvg.toFixed(1)+'%':'–')+'</td>'+
+      '<td>'+d.samples+'</td>'+
+    '</tr>';
+  });
+  $('historyDailyRows').innerHTML = rows || '<tr><td colspan="4">No history yet — logging just started, check back after a few snapshots.</td></tr>';
+  document.querySelectorAll('.history-day-row').forEach(function(tr){
+    tr.addEventListener('click', function(){ loadHistory(tr.dataset.day); });
+  });
+}
+
+function loadHistory(day){
+  $('historyStatus').textContent = 'Loading…';
+  var url = withStation('/api/efficiency-history?days=30'+(day ? '&day='+encodeURIComponent(day) : ''));
+  fetch(url).then(function(r){ return r.json(); }).then(function(data){
+    $('historyStatus').textContent = 'Cycle day: '+data.cycleDay+' (07:00–06:59, station time)';
+    drawHistoryChart(data.hourly || []);
+    renderDailyTable(data.daily || []);
+  }).catch(function(err){
+    $('historyStatus').textContent = 'Error: '+err.message;
+  });
+}
 
 loadAllStationsList();
 loadStations().then(function(){
