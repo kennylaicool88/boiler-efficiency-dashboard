@@ -22,7 +22,7 @@ hourly/daily history can be charted and traced over time.
 - `api/stations.js` — `GET` lists stations; `POST` adds/updates a
   station (field mapping + Fuel Profile), used by the Add/Edit form.
 - `api/log-snapshot.js` — computes and logs one efficiency snapshot per
-  station. Called on a schedule by GitHub Actions, not by the browser;
+  station. Called on a schedule by cron-job.org, not by the browser;
   protected by a shared secret (`x-log-secret` header).
 - `api/efficiency-history.js` — aggregates the logged snapshots into
   hourly averages (for one cycle day) and daily averages (last N days),
@@ -36,7 +36,10 @@ hourly/daily history can be charted and traced over time.
   `log-snapshot.js` so logged history matches what the dashboard itself
   would show.
 - `.github/workflows/log-snapshot.yml` — GitHub Actions workflow that
-  calls `api/log-snapshot.js` every 5 minutes.
+  calls `api/log-snapshot.js`. Kept for manual (`workflow_dispatch`)
+  testing only — GitHub's `schedule` trigger never fired reliably on
+  this repo, so scheduled logging now runs via cron-job.org instead
+  (see step 3 below).
 
 Station data lives in Supabase, not the repo. Table `stations`: `id`,
 `name`, `fields` (jsonb — the 5 dashboard fields, each either
@@ -57,8 +60,8 @@ cycle, not the calendar day.
 Static site + Vercel serverless functions — no build step. Push to
 GitHub with a Vercel project linked to the repo; every push to the
 production branch redeploys automatically. The repo is public (no
-secrets are ever committed — all tokens are Vercel/GitHub secrets) so
-GitHub Actions minutes are unlimited and free.
+secrets are ever committed — all tokens are Vercel/GitHub or
+cron-job.org secrets).
 
 ### 1. Set Vercel environment variables
 
@@ -72,7 +75,7 @@ Project → **Settings → Environment Variables**:
 | `INFLUX_BUCKET` | your bucket name |
 | `SUPABASE_URL` | `https://xxxxx.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → service_role secret key |
-| `LOG_SNAPSHOT_SECRET` | any random string — shared with the GitHub Actions secret of the same name |
+| `LOG_SNAPSHOT_SECRET` | any random string — shared with the `x-log-secret` header value configured in cron-job.org |
 
 All read server-side only — never sent to the browser or committed.
 
@@ -111,12 +114,25 @@ RLS is enabled with **no policies** on both tables — unreachable via
 Supabase's public API (the `anon` key), while the dashboard's
 server-side functions (`service_role`, which bypasses RLS) work fine.
 
-### 3. Set the GitHub Actions secret
+### 3. Set up scheduled logging via cron-job.org
 
-Repo → **Settings → Secrets and variables → Actions → New repository
-secret** → name it `LOG_SNAPSHOT_SECRET`, same value as the Vercel env
-var above. This is what lets the scheduled workflow authenticate to
-`api/log-snapshot.js`.
+GitHub Actions' `schedule` trigger never reliably fired on this repo
+(tried: editing the workflow file, deleting and re-adding it, a
+disable/enable cycle, and offsetting the cron minutes away from the
+top-of-hour load window — none of it worked), so scheduled logging
+runs via [cron-job.org](https://cron-job.org) instead:
+
+1. Sign up free at cron-job.org and create a new cronjob.
+2. URL: `https://boiler-efficiency-dashboard.vercel.app/api/log-snapshot`
+3. Request method: `POST`
+4. Schedule: every 5 minutes
+5. Under advanced/headers, add a custom header `x-log-secret` with the
+   same value as the `LOG_SNAPSHOT_SECRET` Vercel env var above.
+6. Save and enable the job.
+
+`.github/workflows/log-snapshot.yml` still exists with a
+`workflow_dispatch` trigger only, so it can still be run manually from
+the Actions tab for testing — it just no longer runs on a schedule.
 
 ### 4. Add/edit stations
 
@@ -129,10 +145,10 @@ to load its current mapping and Fuel Profile back into the form.
 
 - Settings section shows whether env vars are set and InfluxDB is
   reachable for the selected station.
-- History section shows the hourly chart and daily table once the
-  GitHub Actions workflow has logged a few snapshots (check the
-  Actions tab in GitHub for run status; `workflow_dispatch` lets you
-  trigger one manually to test without waiting).
+- History section shows the hourly chart and daily table once
+  cron-job.org has logged a few snapshots (check the cron-job.org job's
+  execution history for status; `workflow_dispatch` in the Actions tab
+  lets you trigger one manually to test without waiting).
 
 ## Local development
 
