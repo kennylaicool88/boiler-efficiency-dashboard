@@ -209,6 +209,8 @@ a.link:hover,button.link:hover{color:var(--steam);border-bottom-color:var(--stea
   border-color:var(--steam);box-shadow:0 0 0 3px rgba(127,201,217,0.14);
 }
 .field input[type=number]:disabled,.field input[type=text]:disabled{opacity:.4;cursor:not-allowed;}
+.field input[type=number]:read-only{background:var(--bg-panel);color:var(--text-mid);cursor:default;}
+.field input[type=number]:read-only:focus{box-shadow:none;border-color:var(--line);}
 .readout-row{
   display:flex;justify-content:space-between;align-items:baseline;
   font-family:'JetBrains Mono',monospace;font-size:12px;
@@ -444,33 +446,36 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
           <div class="panel-head"><span class="dot"></span>Fuel Supply<span class="spacer"></span><span class="feeds-tag">feeds both gauges</span></div>
           <div class="field">
             <label>FFB throughput <span class="unit">t/hr</span></label>
-            <input type="number" id="ffb" value="60" step="1" min="0">
+            <input type="number" id="ffb" value="60" step="1" min="0" readonly>
           </div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-low);text-transform:uppercase;letter-spacing:.08em;margin:2px 0 8px;">Rule-of-thumb baselines (editable)</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin:2px 0 8px;">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-low);text-transform:uppercase;letter-spacing:.08em;">Set in Settings → Fuel Profile, used here and in History logging</span>
+            <a href="javascript:void(0)" class="link" id="fuelSupplyEditLink">Edit</a>
+          </div>
           <div class="field-grid">
             <div class="field">
               <label>Mesocarp fibre yield <span class="unit">% of FFB</span></label>
-              <input type="number" id="fibrePct" value="12" step="0.5" min="0">
+              <input type="number" id="fibrePct" value="12" step="0.5" min="0" readonly>
             </div>
             <div class="field">
               <label>Fibre GCV as-fired <span class="unit">kJ/kg, 35–40% MC</span></label>
-              <input type="number" id="fibreGcv" value="10750" step="50" min="0">
+              <input type="number" id="fibreGcv" value="10750" step="50" min="0" readonly>
             </div>
             <div class="field">
               <label>Palm kernel shell yield <span class="unit">% of FFB</span></label>
-              <input type="number" id="shellPct" value="5" step="0.5" min="0">
+              <input type="number" id="shellPct" value="5" step="0.5" min="0" readonly>
             </div>
             <div class="field">
               <label>Shell GCV as-fired <span class="unit">kJ/kg, 15–20% MC</span></label>
-              <input type="number" id="shellGcv" value="15500" step="50" min="0">
+              <input type="number" id="shellGcv" value="15500" step="50" min="0" readonly>
             </div>
             <div class="field">
               <label>Shredded EFB yield <span class="unit">% of FFB</span></label>
-              <input type="number" id="efbPct" value="0" step="0.5" min="0">
+              <input type="number" id="efbPct" value="0" step="0.5" min="0" readonly>
             </div>
             <div class="field">
               <label>EFB GCV as-fired <span class="unit">kJ/kg, 45–50% MC</span></label>
-              <input type="number" id="efbGcv" value="8000" step="50" min="0">
+              <input type="number" id="efbGcv" value="8000" step="50" min="0" readonly>
             </div>
           </div>
           <div class="readouts">
@@ -717,6 +722,10 @@ document.querySelectorAll('.nav-item').forEach(function(b){
 });
 $('topbarLiveChip').addEventListener('click', function(){ switchSection('live'); });
 $('gotoSettingsLink').addEventListener('click', function(){ switchSection('settings'); });
+$('fuelSupplyEditLink').addEventListener('click', function(){
+  switchSection('settings');
+  if(currentStation) loadStationForEdit(currentStation);
+});
 
 // ---- Stations ----
 var STATIONS = [];
@@ -1024,6 +1033,15 @@ function checkHealth(applyDefaults){
         var f = data.fields[key];
         if(f && f.manual && f.defaultValue!==undefined && f.defaultValue!==null && $(key)){
           $(key).value = f.defaultValue;
+        }
+      });
+      // Fuel Supply panel is read-only on the dashboard — it always
+      // mirrors the station's stored Fuel Profile (Settings), the same
+      // numbers the background logger uses for History, so the live
+      // gauges and the logged history never drift apart.
+      ['ffb','fibrePct','fibreGcv','shellPct','shellGcv','efbPct','efbGcv'].forEach(function(key){
+        if(data.fuelProfile && data.fuelProfile[key]!==undefined && data.fuelProfile[key]!==null){
+          $(key).value = data.fuelProfile[key];
         }
       });
       recalc();
