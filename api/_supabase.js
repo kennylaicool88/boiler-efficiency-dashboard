@@ -29,8 +29,10 @@ async function restRequest(path, options) {
     const text = await res.text().catch(() => '');
     throw new Error(`Supabase ${options.method || 'GET'} ${path} failed: ${res.status} ${text}`);
   }
-  if (res.status === 204) return null;
-  return res.json();
+  // `Prefer: return=minimal` responses (e.g. 201 Created on insert) have an
+  // empty body, not just 204 — parse defensively rather than assuming JSON.
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 function listStations() {
