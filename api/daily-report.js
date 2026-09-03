@@ -108,6 +108,7 @@ module.exports = async (req, res) => {
   // ---- Daily summary ----
   const boilerEff = stats(dayRows.map((r) => r.boiler_eff));
   const chpEff = stats(dayRows.map((r) => r.chp_eff));
+  const steamPressure = stats(dayRows.map((r) => r.steam_pressure));
 
   // Fuel consumption is derived from the station's Fuel Profile, which is
   // set manually rather than live-measured, so it's constant across the
@@ -180,6 +181,7 @@ module.exports = async (req, res) => {
     summary: {
       boilerEff,
       chpEff,
+      steamPressure,
       fuelRateAvgTHr: fuelRateAvg,
       fuelTonnesEstimate,
       dayAvgSteamRate,

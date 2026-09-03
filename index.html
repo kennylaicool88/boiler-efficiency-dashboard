@@ -344,7 +344,7 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
 #dailyReportPrintArea .dr-meta{font-family:'JetBrains Mono',monospace;font-size:11px;color:#D8ECF2;}
 #dailyReportPrintArea .dr-section-title{display:flex;align-items:center;gap:7px;font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:.07em;text-transform:uppercase;color:var(--dr-ink);border-bottom:1.5px solid var(--dr-band-to);padding-bottom:5px;margin:20px 0 10px;}
 #dailyReportPrintArea .dr-section-title::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--dr-band-to);flex-shrink:0;}
-#dailyReportPrintArea .dr-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+#dailyReportPrintArea .dr-summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
 #dailyReportPrintArea .dr-stat{border:1px solid var(--dr-line);border-left-width:3px;border-radius:3px;padding:7px 9px;background:#FBFDFE;}
 #dailyReportPrintArea .dr-stat-label{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--dr-mid);}
 #dailyReportPrintArea .dr-stat-value{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;margin-top:2px;color:var(--dr-ink);}
@@ -1512,8 +1512,10 @@ function buildDailyReportHtml(data){
   html += '<div class="dr-summary-grid">';
   html += '<div class="dr-stat dr-stat-boiler"><div class="dr-stat-label">Boiler Efficiency (avg)</div><div class="dr-stat-value">'+fmtPct(s.boilerEff.avg)+'</div><div class="dr-stat-sub">min '+fmtPct(s.boilerEff.min)+' &middot; max '+fmtPct(s.boilerEff.max)+'</div></div>';
   html += '<div class="dr-stat dr-stat-chp"><div class="dr-stat-label">CHP Efficiency (avg)</div><div class="dr-stat-value">'+fmtPct(s.chpEff.avg)+'</div><div class="dr-stat-sub">min '+fmtPct(s.chpEff.min)+' &middot; max '+fmtPct(s.chpEff.max)+'</div></div>';
+  html += '<div class="dr-stat dr-stat-boiler"><div class="dr-stat-label">Steam Pressure</div><div class="dr-stat-value">'+fmtNum(s.steamPressure.avg,1,'bar')+'</div><div class="dr-stat-sub">min '+fmtNum(s.steamPressure.min,1)+' &middot; max '+fmtNum(s.steamPressure.max,1)+'</div></div>';
   html += '<div class="dr-stat dr-stat-boiler"><div class="dr-stat-label">Avg Steam Rate</div><div class="dr-stat-value">'+fmtNum(s.dayAvgSteamRate,1,'t/hr')+'</div><div class="dr-stat-sub">'+data.samples+' snapshots</div></div>';
   html += '<div class="dr-stat dr-stat-chp"><div class="dr-stat-label">Avg Electrical Output</div><div class="dr-stat-value">'+fmtNum(s.dayAvgElecOutput,0,'kW')+'</div><div class="dr-stat-sub">'+fmtNum(data.hoursCovered,1,'hr covered')+'</div></div>';
+  html += '<div class="dr-stat dr-stat-boiler"><div class="dr-stat-label">Feedwater Temp</div><div class="dr-stat-value">'+fmtNum(s.dayAvgFeedTemp,1,'°C')+'</div><div class="dr-stat-sub">average</div></div>';
   html += '</div>';
 
   html += '<div class="dr-chart-legend" style="margin-top:16px;"><span><i style="background:'+DR_COLOR_BOILER+';"></i>Boiler</span><span><i style="background:'+DR_COLOR_CHP+';"></i>CHP</span></div>';
@@ -1546,9 +1548,9 @@ function buildDailyReportHtml(data){
   }
 
   html += '<div class="dr-section-title">Hourly Breakdown</div>';
-  html += '<table><thead><tr><th>Hour</th><th>Boiler %</th><th>CHP %</th><th>Steam t/hr</th><th>Elec kW</th><th>Samples</th></tr></thead><tbody>';
+  html += '<table><thead><tr><th>Hour</th><th>Boiler %</th><th>CHP %</th><th>Steam t/hr</th><th>Pressure bar</th><th>Elec kW</th><th>Samples</th></tr></thead><tbody>';
   data.hourly.forEach(function(h){
-    html += '<tr><td>'+h.hour+':00</td><td>'+fmtPct(h.boilerEffAvg)+'</td><td>'+fmtPct(h.chpEffAvg)+'</td><td>'+fmtNum(h.steamRateAvg,1)+'</td><td>'+fmtNum(h.elecOutputAvg,0)+'</td><td>'+h.samples+'</td></tr>';
+    html += '<tr><td>'+h.hour+':00</td><td>'+fmtPct(h.boilerEffAvg)+'</td><td>'+fmtPct(h.chpEffAvg)+'</td><td>'+fmtNum(h.steamRateAvg,1)+'</td><td>'+fmtNum(h.steamPressureAvg,1)+'</td><td>'+fmtNum(h.elecOutputAvg,0)+'</td><td>'+h.samples+'</td></tr>';
   });
   html += '</tbody></table>';
 
