@@ -109,22 +109,6 @@ module.exports = async (req, res) => {
   const boilerEff = stats(dayRows.map((r) => r.boiler_eff));
   const chpEff = stats(dayRows.map((r) => r.chp_eff));
 
-  // Steam mass / electrical energy for the day, integrated over the actual
-  // logging intervals (not assumed to be exactly 5 min), so this stays
-  // correct if the logging cadence ever changes. A gap longer than 30 min
-  // (e.g. a logging outage) is clamped so it doesn't inflate the total.
-  let totalSteamT = 0;
-  let totalElecKWh = 0;
-  for (let i = 0; i < dayRows.length; i++) {
-    let intervalHr;
-    if (i < dayRows.length - 1) intervalHr = (new Date(dayRows[i + 1].ts) - new Date(dayRows[i].ts)) / 3600000;
-    else if (i > 0) intervalHr = (new Date(dayRows[i].ts) - new Date(dayRows[i - 1].ts)) / 3600000;
-    else intervalHr = 5 / 60;
-    intervalHr = Math.min(Math.max(intervalHr, 0), 0.5);
-    if (dayRows[i].steam_rate !== null && dayRows[i].steam_rate !== undefined) totalSteamT += dayRows[i].steam_rate * intervalHr;
-    if (dayRows[i].elec_output !== null && dayRows[i].elec_output !== undefined) totalElecKWh += dayRows[i].elec_output * intervalHr;
-  }
-
   // Fuel consumption is derived from the station's Fuel Profile, which is
   // set manually rather than live-measured, so it's constant across the
   // day unless the profile itself was edited — this total is an estimate
@@ -144,6 +128,7 @@ module.exports = async (req, res) => {
   const dayAvgSteamRate = avgOf(dayRows.map((r) => r.steam_rate));
   const dayAvgSteamPressure = avgOf(dayRows.map((r) => r.steam_pressure));
   const dayAvgFeedTemp = avgOf(dayRows.map((r) => r.feed_temp));
+  const dayAvgElecOutput = avgOf(dayRows.map((r) => r.elec_output));
 
   function pctDelta(hourVal, dayAvg) {
     if (hourVal === null || hourVal === undefined || dayAvg === null || dayAvg === undefined || dayAvg === 0) return null;
@@ -195,13 +180,12 @@ module.exports = async (req, res) => {
     summary: {
       boilerEff,
       chpEff,
-      totalSteamT,
-      totalElecKWh,
       fuelRateAvgTHr: fuelRateAvg,
       fuelTonnesEstimate,
       dayAvgSteamRate,
       dayAvgSteamPressure,
       dayAvgFeedTemp,
+      dayAvgElecOutput,
     },
     hourly,
     lowEfficiencyHours,

@@ -331,27 +331,43 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
 .table-input:focus{border-color:var(--steam);}
 .table-input:disabled{opacity:.35;cursor:not-allowed;}
 
-/* ---- Daily Report (print-only) ---- */
-#dailyReportPrintArea{display:none;}
-#dailyReportPrintArea .dr-title{font-family:'Oswald',sans-serif;font-size:22px;font-weight:600;margin:0 0 2px;}
-#dailyReportPrintArea .dr-meta{font-family:'JetBrains Mono',monospace;font-size:12px;color:#555;margin:0 0 18px;}
-#dailyReportPrintArea .dr-section-title{font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid #ccc;padding-bottom:5px;margin:22px 0 10px;}
-#dailyReportPrintArea .dr-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-#dailyReportPrintArea .dr-stat{border:1px solid #ddd;border-radius:4px;padding:8px 10px;}
-#dailyReportPrintArea .dr-stat-label{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#777;}
-#dailyReportPrintArea .dr-stat-value{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:600;margin-top:2px;}
-#dailyReportPrintArea .dr-stat-sub{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#888;margin-top:1px;}
-#dailyReportPrintArea table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:11px;}
-#dailyReportPrintArea th,#dailyReportPrintArea td{border-bottom:1px solid #e2e2e2;padding:4px 8px;text-align:right;}
+/* ---- Daily Report (print-only, A4) ---- */
+#dailyReportPrintArea{
+  display:none;
+  --dr-ink:#16232E; --dr-mid:#5B6B77; --dr-low:#8B98A2; --dr-line:#DEE4E8;
+  --dr-boiler:#136E8B; --dr-chp:#248A57; --dr-fuel:#C97418; --dr-bad:#B23A3A;
+  --dr-band-from:#0F2A3D; --dr-band-to:#136E8B;
+}
+#dailyReportPrintArea .dr-band{background:linear-gradient(100deg,var(--dr-band-from),var(--dr-band-to));color:#fff;padding:10mm 12mm;border-radius:5px;margin:0 0 8mm;}
+#dailyReportPrintArea .dr-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#AEE4F2;margin:0 0 4px;}
+#dailyReportPrintArea .dr-title{font-family:'Oswald',sans-serif;font-size:24px;font-weight:600;margin:0 0 4px;color:#fff;}
+#dailyReportPrintArea .dr-meta{font-family:'JetBrains Mono',monospace;font-size:11px;color:#D8ECF2;}
+#dailyReportPrintArea .dr-section-title{display:flex;align-items:center;gap:7px;font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:.07em;text-transform:uppercase;color:var(--dr-ink);border-bottom:1.5px solid var(--dr-band-to);padding-bottom:5px;margin:20px 0 10px;}
+#dailyReportPrintArea .dr-section-title::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--dr-band-to);flex-shrink:0;}
+#dailyReportPrintArea .dr-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+#dailyReportPrintArea .dr-stat{border:1px solid var(--dr-line);border-left-width:3px;border-radius:3px;padding:7px 9px;background:#FBFDFE;}
+#dailyReportPrintArea .dr-stat-label{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--dr-mid);}
+#dailyReportPrintArea .dr-stat-value{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;margin-top:2px;color:var(--dr-ink);}
+#dailyReportPrintArea .dr-stat-sub{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dr-low);margin-top:1px;}
+#dailyReportPrintArea .dr-stat-boiler{border-left-color:var(--dr-boiler);}
+#dailyReportPrintArea .dr-stat-chp{border-left-color:var(--dr-chp);}
+#dailyReportPrintArea .dr-stat-fuel{border-left-color:var(--dr-fuel);}
+#dailyReportPrintArea .dr-chart-legend{display:flex;gap:16px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--dr-mid);margin:2px 0 4px;}
+#dailyReportPrintArea .dr-chart-legend span{display:inline-flex;align-items:center;gap:5px;}
+#dailyReportPrintArea .dr-chart-legend i{width:11px;height:3px;border-radius:2px;display:inline-block;}
+#dailyReportPrintArea table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:10.5px;}
+#dailyReportPrintArea th,#dailyReportPrintArea td{border-bottom:1px solid var(--dr-line);padding:4px 8px;text-align:right;}
 #dailyReportPrintArea th:first-child,#dailyReportPrintArea td:first-child{text-align:left;}
-#dailyReportPrintArea thead th{color:#555;font-weight:600;border-bottom:1px solid #999;}
-#dailyReportPrintArea .dr-note{font-size:12px;line-height:1.6;padding:10px 12px;border-left:3px solid #D64545;background:#fdf3f3;margin-bottom:8px;}
-#dailyReportPrintArea .dr-note-ok{border-left-color:#4FAE7C;background:#f2f9f5;}
-#dailyReportPrintArea .dr-footnote{font-size:10.5px;color:#888;margin-top:16px;line-height:1.6;}
+#dailyReportPrintArea thead th{color:var(--dr-boiler);font-weight:700;background:#EAF4F8;border-bottom:1.5px solid var(--dr-boiler);}
+#dailyReportPrintArea tbody tr{break-inside:avoid;}
+#dailyReportPrintArea .dr-note{font-size:11.5px;line-height:1.6;padding:9px 11px;border-left:3px solid var(--dr-bad);background:#FDF3F3;margin-bottom:7px;break-inside:avoid;}
+#dailyReportPrintArea .dr-note-ok{border-left-color:var(--dr-chp);background:#F1F9F4;}
+#dailyReportPrintArea .dr-footnote{font-size:10px;color:var(--dr-low);margin-top:14px;line-height:1.6;}
 @media print{
+  @page{size:A4;margin:16mm 14mm;}
   body *{visibility:hidden;}
-  #dailyReportPrintArea,#dailyReportPrintArea *{visibility:visible;}
-  #dailyReportPrintArea{display:block;position:absolute;left:0;top:0;width:100%;background:#fff;color:#111;padding:0;}
+  #dailyReportPrintArea,#dailyReportPrintArea *{visibility:visible;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  #dailyReportPrintArea{display:block;position:absolute;left:0;top:0;width:100%;background:#fff;color:var(--dr-ink);padding:0;}
 }
 </style>
 </head>
@@ -1426,31 +1442,87 @@ function loadHistory(day){
 function fmtPct(v){ return (v===null || v===undefined || !isFinite(v)) ? '–' : v.toFixed(1)+'%'; }
 function fmtNum(v,d,unit){ return (v===null || v===undefined || !isFinite(v)) ? '–' : v.toFixed(d)+(unit?' '+unit:''); }
 
+var DR_COLOR_BOILER = '#136E8B', DR_COLOR_CHP = '#248A57';
+
+function buildDailyReportChartSvg(hourly){
+  var W=700, H=200, padL=32, padR=8, padT=8, padB=22;
+  var plotW=W-padL-padR, plotH=H-padT-padB;
+  var n = hourly.length || 24;
+  function xAt(i){ return padL + (plotW*i/(n-1)); }
+  function yAt(pct){ return padT + plotH - (plotH*pct/100); }
+
+  var svg = '';
+  [0,25,50,75,100].forEach(function(pct){
+    var y = yAt(pct);
+    svg += '<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="#DEE4E8" stroke-width="1"/>';
+    svg += '<text x="'+(padL-6)+'" y="'+(y+3)+'" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#8B98A2">'+pct+'</text>';
+  });
+  hourly.forEach(function(pt,i){
+    if(i%3===0){
+      var x = xAt(i);
+      svg += '<text x="'+x+'" y="'+(H-padB+13)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#8B98A2">'+pt.hour+':00</text>';
+    }
+  });
+  function buildPath(key){
+    var d='', open=false;
+    hourly.forEach(function(pt,i){
+      var v = pt[key];
+      if(v===null || v===undefined){ open=false; return; }
+      var x=xAt(i), y=yAt(v);
+      d += (open?'L':'M')+x+' '+y+' ';
+      open = true;
+    });
+    return d;
+  }
+  svg += '<path d="'+buildPath('boilerEffAvg')+'" fill="none" stroke="'+DR_COLOR_BOILER+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+  svg += '<path d="'+buildPath('chpEffAvg')+'" fill="none" stroke="'+DR_COLOR_CHP+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+
+  var DODGE_PX=8, DODGE_OFFSET=3;
+  hourly.forEach(function(pt,i){
+    var x = xAt(i);
+    var hasBoiler = pt.boilerEffAvg!==null && pt.boilerEffAvg!==undefined;
+    var hasChp = pt.chpEffAvg!==null && pt.chpEffAvg!==undefined;
+    var dxB=0, dxC=0;
+    if(hasBoiler && hasChp && Math.abs(yAt(pt.boilerEffAvg)-yAt(pt.chpEffAvg)) < DODGE_PX){ dxB=-DODGE_OFFSET; dxC=DODGE_OFFSET; }
+    if(hasBoiler) svg += '<circle cx="'+(x+dxB)+'" cy="'+yAt(pt.boilerEffAvg)+'" r="2.6" fill="'+DR_COLOR_BOILER+'" stroke="#fff" stroke-width="1"/>';
+    if(hasChp) svg += '<circle cx="'+(x+dxC)+'" cy="'+yAt(pt.chpEffAvg)+'" r="2.6" fill="'+DR_COLOR_CHP+'" stroke="#fff" stroke-width="1"/>';
+  });
+  svg += '<line x1="'+padL+'" y1="'+(H-padB)+'" x2="'+(W-padR)+'" y2="'+(H-padB)+'" stroke="#8B98A2" stroke-width="1"/>';
+
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;">'+svg+'</svg>';
+}
+
 function buildDailyReportHtml(data){
   var s = data.summary;
   var stationLabel = data.stationName || data.station;
 
   var html = '';
+  html += '<div class="dr-band">';
+  html += '<div class="dr-eyebrow">Boiler Efficiency Monitor</div>';
   html += '<div class="dr-title">Daily Efficiency Report</div>';
   html += '<div class="dr-meta">'+stationLabel+' &middot; Cycle day '+data.cycleDay+' (07:00–06:59, station time) &middot; Generated '+new Date().toLocaleString()+'</div>';
+  html += '</div>';
 
   if(!data.hasData){
     html += '<div class="dr-note">No logged data found for this cycle day yet.</div>';
     return html;
   }
 
-  html += '<div class="dr-section-title">Efficiency Summary</div>';
+  html += '<div class="dr-section-title">Efficiency &amp; Output Summary</div>';
   html += '<div class="dr-summary-grid">';
-  html += '<div class="dr-stat"><div class="dr-stat-label">Boiler Efficiency (avg)</div><div class="dr-stat-value">'+fmtPct(s.boilerEff.avg)+'</div><div class="dr-stat-sub">min '+fmtPct(s.boilerEff.min)+' &middot; max '+fmtPct(s.boilerEff.max)+'</div></div>';
-  html += '<div class="dr-stat"><div class="dr-stat-label">CHP Efficiency (avg)</div><div class="dr-stat-value">'+fmtPct(s.chpEff.avg)+'</div><div class="dr-stat-sub">min '+fmtPct(s.chpEff.min)+' &middot; max '+fmtPct(s.chpEff.max)+'</div></div>';
-  html += '<div class="dr-stat"><div class="dr-stat-label">Total Steam Generated</div><div class="dr-stat-value">'+fmtNum(s.totalSteamT,1,'t')+'</div><div class="dr-stat-sub">'+data.samples+' snapshots</div></div>';
-  html += '<div class="dr-stat"><div class="dr-stat-label">Total Electrical Output</div><div class="dr-stat-value">'+fmtNum(s.totalElecKWh,0,'kWh')+'</div><div class="dr-stat-sub">'+fmtNum(data.hoursCovered,1,'hr covered')+'</div></div>';
+  html += '<div class="dr-stat dr-stat-boiler"><div class="dr-stat-label">Boiler Efficiency (avg)</div><div class="dr-stat-value">'+fmtPct(s.boilerEff.avg)+'</div><div class="dr-stat-sub">min '+fmtPct(s.boilerEff.min)+' &middot; max '+fmtPct(s.boilerEff.max)+'</div></div>';
+  html += '<div class="dr-stat dr-stat-chp"><div class="dr-stat-label">CHP Efficiency (avg)</div><div class="dr-stat-value">'+fmtPct(s.chpEff.avg)+'</div><div class="dr-stat-sub">min '+fmtPct(s.chpEff.min)+' &middot; max '+fmtPct(s.chpEff.max)+'</div></div>';
+  html += '<div class="dr-stat dr-stat-boiler"><div class="dr-stat-label">Avg Steam Rate</div><div class="dr-stat-value">'+fmtNum(s.dayAvgSteamRate,1,'t/hr')+'</div><div class="dr-stat-sub">'+data.samples+' snapshots</div></div>';
+  html += '<div class="dr-stat dr-stat-chp"><div class="dr-stat-label">Avg Electrical Output</div><div class="dr-stat-value">'+fmtNum(s.dayAvgElecOutput,0,'kW')+'</div><div class="dr-stat-sub">'+fmtNum(data.hoursCovered,1,'hr covered')+'</div></div>';
   html += '</div>';
+
+  html += '<div class="dr-chart-legend" style="margin-top:16px;"><span><i style="background:'+DR_COLOR_BOILER+';"></i>Boiler</span><span><i style="background:'+DR_COLOR_CHP+';"></i>CHP</span></div>';
+  html += buildDailyReportChartSvg(data.hourly);
 
   html += '<div class="dr-section-title">Fuel Consumption</div>';
   html += '<div class="dr-summary-grid">';
-  html += '<div class="dr-stat"><div class="dr-stat-label">Fuel Rate (avg)</div><div class="dr-stat-value">'+fmtNum(s.fuelRateAvgTHr,2,'t/hr')+'</div></div>';
-  html += '<div class="dr-stat"><div class="dr-stat-label">Estimated Daily Fuel Use</div><div class="dr-stat-value">'+fmtNum(s.fuelTonnesEstimate,1,'t')+'</div></div>';
+  html += '<div class="dr-stat dr-stat-fuel"><div class="dr-stat-label">Fuel Rate (avg)</div><div class="dr-stat-value">'+fmtNum(s.fuelRateAvgTHr,2,'t/hr')+'</div></div>';
+  html += '<div class="dr-stat dr-stat-fuel"><div class="dr-stat-label">Estimated Daily Fuel Use</div><div class="dr-stat-value">'+fmtNum(s.fuelTonnesEstimate,1,'t')+'</div></div>';
   html += '</div>';
   html += '<div class="dr-footnote">Fuel figures come from this station\'s stored Fuel Profile (Settings), not a live sensor — treat as an estimate based on the currently-set FFB throughput and fuel mix, not a separately-measured quantity.</div>';
 
