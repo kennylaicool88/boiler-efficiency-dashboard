@@ -80,6 +80,14 @@ function listLogRows(stationId, sinceISO) {
   );
 }
 
+// Full rows (all logged fields) for the Daily Report, which needs the raw
+// live values behind the efficiency numbers, not just the two averages.
+function listLogRowsFull(stationId, sinceISO) {
+  return restRequest(
+    `efficiency_log?station_id=eq.${encodeURIComponent(stationId)}&ts=gte.${encodeURIComponent(sinceISO)}&select=ts,boiler_eff,chp_eff,steam_rate,steam_pressure,feed_temp,elec_output,exhaust_pressure,fuel_rate&order=ts.asc`
+  );
+}
+
 module.exports = {
   configured,
   listStations,
@@ -89,4 +97,5 @@ module.exports = {
   upsertStation,
   insertLogRows,
   listLogRows,
+  listLogRowsFull,
 };

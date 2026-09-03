@@ -330,6 +330,29 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
 .table-input:hover{border-color:var(--steam-dim);}
 .table-input:focus{border-color:var(--steam);}
 .table-input:disabled{opacity:.35;cursor:not-allowed;}
+
+/* ---- Daily Report (print-only) ---- */
+#dailyReportPrintArea{display:none;}
+#dailyReportPrintArea .dr-title{font-family:'Oswald',sans-serif;font-size:22px;font-weight:600;margin:0 0 2px;}
+#dailyReportPrintArea .dr-meta{font-family:'JetBrains Mono',monospace;font-size:12px;color:#555;margin:0 0 18px;}
+#dailyReportPrintArea .dr-section-title{font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid #ccc;padding-bottom:5px;margin:22px 0 10px;}
+#dailyReportPrintArea .dr-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+#dailyReportPrintArea .dr-stat{border:1px solid #ddd;border-radius:4px;padding:8px 10px;}
+#dailyReportPrintArea .dr-stat-label{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#777;}
+#dailyReportPrintArea .dr-stat-value{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:600;margin-top:2px;}
+#dailyReportPrintArea .dr-stat-sub{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#888;margin-top:1px;}
+#dailyReportPrintArea table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:11px;}
+#dailyReportPrintArea th,#dailyReportPrintArea td{border-bottom:1px solid #e2e2e2;padding:4px 8px;text-align:right;}
+#dailyReportPrintArea th:first-child,#dailyReportPrintArea td:first-child{text-align:left;}
+#dailyReportPrintArea thead th{color:#555;font-weight:600;border-bottom:1px solid #999;}
+#dailyReportPrintArea .dr-note{font-size:12px;line-height:1.6;padding:10px 12px;border-left:3px solid #D64545;background:#fdf3f3;margin-bottom:8px;}
+#dailyReportPrintArea .dr-note-ok{border-left-color:#4FAE7C;background:#f2f9f5;}
+#dailyReportPrintArea .dr-footnote{font-size:10.5px;color:#888;margin-top:16px;line-height:1.6;}
+@media print{
+  body *{visibility:hidden;}
+  #dailyReportPrintArea,#dailyReportPrintArea *{visibility:visible;}
+  #dailyReportPrintArea{display:block;position:absolute;left:0;top:0;width:100%;background:#fff;color:#111;padding:0;}
+}
 </style>
 </head>
 <body>
@@ -685,7 +708,9 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
             <span class="dot"></span>Efficiency History
             <span class="spacer"></span>
             <span class="unit" id="historyStatus" style="text-transform:none;">Loading…</span>
+            <button type="button" class="link" id="dailyReportBtn" style="margin-left:14px;text-transform:none;">Download Daily Report (PDF)</button>
           </div>
+          <div id="dailyReportStatus" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-low);margin:-4px 0 10px;"></div>
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
             <button type="button" class="history-legend-btn" id="historyLegendBoiler" data-series="boiler">
               <span class="swatch" style="background:var(--steam);"></span>Boiler
@@ -711,6 +736,8 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
     </div>
   </div>
 </div>
+
+<div id="dailyReportPrintArea"></div>
 
 <script>
 function $(id){return document.getElementById(id);}
@@ -1268,6 +1295,7 @@ $('addStationBtn').addEventListener('click', function(){
 // ---- History: hourly chart + daily table ----
 var historyLastHourly = [];
 var historySeriesFilter = 'both'; // 'both' | 'boiler' | 'chp'
+var historyCurrentDay = null;
 
 function updateHistoryLegendUI(){
   var bBtn = $('historyLegendBoiler'), cBtn = $('historyLegendChp');
@@ -1386,12 +1414,88 @@ function loadHistory(day){
   var url = withStation('/api/efficiency-history?days=30'+(day ? '&day='+encodeURIComponent(day) : ''));
   fetch(url).then(function(r){ return r.json(); }).then(function(data){
     $('historyStatus').textContent = 'Cycle day: '+data.cycleDay+' (07:00–06:59, station time)';
+    historyCurrentDay = data.cycleDay;
     drawHistoryChart(data.hourly || []);
     renderDailyTable(data.daily || []);
   }).catch(function(err){
     $('historyStatus').textContent = 'Error: '+err.message;
   });
 }
+
+// ---- Daily Report (print-to-PDF) ----
+function fmtPct(v){ return (v===null || v===undefined || !isFinite(v)) ? '–' : v.toFixed(1)+'%'; }
+function fmtNum(v,d,unit){ return (v===null || v===undefined || !isFinite(v)) ? '–' : v.toFixed(d)+(unit?' '+unit:''); }
+
+function buildDailyReportHtml(data){
+  var s = data.summary;
+  var stationLabel = data.stationName || data.station;
+
+  var html = '';
+  html += '<div class="dr-title">Daily Efficiency Report</div>';
+  html += '<div class="dr-meta">'+stationLabel+' &middot; Cycle day '+data.cycleDay+' (07:00–06:59, station time) &middot; Generated '+new Date().toLocaleString()+'</div>';
+
+  if(!data.hasData){
+    html += '<div class="dr-note">No logged data found for this cycle day yet.</div>';
+    return html;
+  }
+
+  html += '<div class="dr-section-title">Efficiency Summary</div>';
+  html += '<div class="dr-summary-grid">';
+  html += '<div class="dr-stat"><div class="dr-stat-label">Boiler Efficiency (avg)</div><div class="dr-stat-value">'+fmtPct(s.boilerEff.avg)+'</div><div class="dr-stat-sub">min '+fmtPct(s.boilerEff.min)+' &middot; max '+fmtPct(s.boilerEff.max)+'</div></div>';
+  html += '<div class="dr-stat"><div class="dr-stat-label">CHP Efficiency (avg)</div><div class="dr-stat-value">'+fmtPct(s.chpEff.avg)+'</div><div class="dr-stat-sub">min '+fmtPct(s.chpEff.min)+' &middot; max '+fmtPct(s.chpEff.max)+'</div></div>';
+  html += '<div class="dr-stat"><div class="dr-stat-label">Total Steam Generated</div><div class="dr-stat-value">'+fmtNum(s.totalSteamT,1,'t')+'</div><div class="dr-stat-sub">'+data.samples+' snapshots</div></div>';
+  html += '<div class="dr-stat"><div class="dr-stat-label">Total Electrical Output</div><div class="dr-stat-value">'+fmtNum(s.totalElecKWh,0,'kWh')+'</div><div class="dr-stat-sub">'+fmtNum(data.hoursCovered,1,'hr covered')+'</div></div>';
+  html += '</div>';
+
+  html += '<div class="dr-section-title">Fuel Consumption</div>';
+  html += '<div class="dr-summary-grid">';
+  html += '<div class="dr-stat"><div class="dr-stat-label">Fuel Rate (avg)</div><div class="dr-stat-value">'+fmtNum(s.fuelRateAvgTHr,2,'t/hr')+'</div></div>';
+  html += '<div class="dr-stat"><div class="dr-stat-label">Estimated Daily Fuel Use</div><div class="dr-stat-value">'+fmtNum(s.fuelTonnesEstimate,1,'t')+'</div></div>';
+  html += '</div>';
+  html += '<div class="dr-footnote">Fuel figures come from this station\'s stored Fuel Profile (Settings), not a live sensor — treat as an estimate based on the currently-set FFB throughput and fuel mix, not a separately-measured quantity.</div>';
+
+  html += '<div class="dr-section-title">Why Did Efficiency Drop?</div>';
+  if(data.lowEfficiencyHours && data.lowEfficiencyHours.length){
+    html += '<div class="dr-footnote" style="margin-top:0;margin-bottom:10px;">Fuel input is fixed for the day (from the stored Fuel Profile, not a live sensor), so every swing in efficiency below is driven by the live steam readings. Hours shown are &ge;15% below the day\'s average boiler efficiency.</div>';
+    data.lowEfficiencyHours.forEach(function(h){
+      var driverText = h.primaryDriver
+        ? h.primaryDriver+' moved '+Math.abs(h.primaryDriverDeltaPct).toFixed(0)+'% '+(h.primaryDriverDeltaPct<0?'below':'above')+' the day\'s average, the largest contributing factor.'
+        : 'No single live variable stood out — check for a Fuel Profile change or sensor gap around this hour.';
+      html += '<div class="dr-note">'+
+        '<strong>'+h.hour+':00–'+((h.hour+1)%24)+':00</strong> &mdash; Boiler efficiency '+fmtPct(h.boilerEffAvg)+' ('+h.deltaPctFromDayAvg.toFixed(0)+'% vs. day average). '+
+        'Steam output '+fmtNum(h.steamRateAvg,1,'t/hr')+(h.steamRateDeltaPct!==null?' ('+(h.steamRateDeltaPct>=0?'+':'')+h.steamRateDeltaPct.toFixed(0)+'%)':'')+', '+
+        'steam pressure '+fmtNum(h.steamPressureAvg,1,'bar')+(h.steamPressureDeltaPct!==null?' ('+(h.steamPressureDeltaPct>=0?'+':'')+h.steamPressureDeltaPct.toFixed(0)+'%)':'')+', '+
+        'feedwater '+fmtNum(h.feedTempAvg,1,'°C')+(h.feedTempDeltaPct!==null?' ('+(h.feedTempDeltaPct>=0?'+':'')+h.feedTempDeltaPct.toFixed(0)+'%)':'')+'. '+
+        driverText+
+      '</div>';
+    });
+  } else {
+    html += '<div class="dr-note dr-note-ok">No hours were notably (&ge;15%) below the day\'s average efficiency — the boiler ran consistently through the day.</div>';
+  }
+
+  html += '<div class="dr-section-title">Hourly Breakdown</div>';
+  html += '<table><thead><tr><th>Hour</th><th>Boiler %</th><th>CHP %</th><th>Steam t/hr</th><th>Elec kW</th><th>Samples</th></tr></thead><tbody>';
+  data.hourly.forEach(function(h){
+    html += '<tr><td>'+h.hour+':00</td><td>'+fmtPct(h.boilerEffAvg)+'</td><td>'+fmtPct(h.chpEffAvg)+'</td><td>'+fmtNum(h.steamRateAvg,1)+'</td><td>'+fmtNum(h.elecOutputAvg,0)+'</td><td>'+h.samples+'</td></tr>';
+  });
+  html += '</tbody></table>';
+
+  return html;
+}
+
+function generateDailyReport(){
+  $('dailyReportStatus').textContent = 'Building report…';
+  var url = withStation('/api/daily-report'+(historyCurrentDay ? '?day='+encodeURIComponent(historyCurrentDay) : ''));
+  fetch(url).then(function(r){ return r.json(); }).then(function(data){
+    if(data.error){ throw new Error(data.error); }
+    $('dailyReportPrintArea').innerHTML = buildDailyReportHtml(data);
+    $('dailyReportStatus').textContent = '';
+    setTimeout(function(){ window.print(); }, 50);
+  }).catch(function(err){
+    $('dailyReportStatus').textContent = 'Error: '+err.message;
+  });
+}
+$('dailyReportBtn').addEventListener('click', generateDailyReport);
 
 loadAllStationsList();
 loadStations().then(function(){
