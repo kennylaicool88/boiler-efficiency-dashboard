@@ -384,7 +384,6 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
     <button class="nav-item" data-section="live" type="button"><span class="nav-dot"></span>Live Data Feed</button>
     <button class="nav-item" data-section="settings" type="button"><span class="nav-dot"></span>Settings</button>
     <button class="nav-item" data-section="hidden" type="button"><span class="nav-dot"></span>Hidden Data</button>
-    <button class="nav-item" data-section="history" type="button"><span class="nav-dot"></span>History</button>
   </nav>
 
   <div class="content">
@@ -479,6 +478,35 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
               <div class="delta-note" id="chp-note">–</div>
             </details>
           </div>
+        </div>
+
+        <div class="panel" style="margin-top:18px;">
+          <div class="panel-head">
+            <span class="dot"></span>Efficiency History
+            <span class="spacer"></span>
+            <span class="unit" id="historyStatus" style="text-transform:none;">Loading…</span>
+            <button type="button" class="link" id="dailyReportBtn" style="margin-left:14px;text-transform:none;">Download Daily Report (PDF)</button>
+          </div>
+          <div id="dailyReportStatus" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-low);margin:-4px 0 10px;"></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+            <button type="button" class="history-legend-btn" id="historyLegendBoiler" data-series="boiler">
+              <span class="swatch" style="background:var(--steam);"></span>Boiler
+            </button>
+            <button type="button" class="history-legend-btn" id="historyLegendChp" data-series="chp">
+              <span class="swatch" style="background:var(--ok);"></span>CHP
+            </button>
+          </div>
+          <div style="overflow-x:auto;">
+            <svg id="historyChart" viewBox="0 0 760 300" style="width:100%;min-width:600px;height:auto;"></svg>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:18px;">
+          <div class="panel-head"><span class="dot" style="background:var(--steam);"></span>Daily Averages <span class="unit" style="text-transform:none;">— click a day to view its hourly chart above</span></div>
+          <table class="settings-table">
+            <thead><tr><th>Cycle day (07:00–06:59)</th><th>Boiler avg</th><th>CHP avg</th><th>Samples</th></tr></thead>
+            <tbody id="historyDailyRows"><tr><td colspan="4">Loading…</td></tr></tbody>
+          </table>
         </div>
 
         <div class="panel" style="margin-top:18px;">
@@ -717,37 +745,6 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
         </div>
       </section>
 
-      <!-- ================= HISTORY ================= -->
-      <section class="app-section" id="section-history">
-        <div class="panel">
-          <div class="panel-head">
-            <span class="dot"></span>Efficiency History
-            <span class="spacer"></span>
-            <span class="unit" id="historyStatus" style="text-transform:none;">Loading…</span>
-            <button type="button" class="link" id="dailyReportBtn" style="margin-left:14px;text-transform:none;">Download Daily Report (PDF)</button>
-          </div>
-          <div id="dailyReportStatus" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-low);margin:-4px 0 10px;"></div>
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
-            <button type="button" class="history-legend-btn" id="historyLegendBoiler" data-series="boiler">
-              <span class="swatch" style="background:var(--steam);"></span>Boiler
-            </button>
-            <button type="button" class="history-legend-btn" id="historyLegendChp" data-series="chp">
-              <span class="swatch" style="background:var(--ok);"></span>CHP
-            </button>
-          </div>
-          <div style="overflow-x:auto;">
-            <svg id="historyChart" viewBox="0 0 760 300" style="width:100%;min-width:600px;height:auto;"></svg>
-          </div>
-        </div>
-
-        <div class="panel" style="margin-top:18px;">
-          <div class="panel-head"><span class="dot" style="background:var(--steam);"></span>Daily Averages <span class="unit" style="text-transform:none;">— click a day to view its hourly chart above</span></div>
-          <table class="settings-table">
-            <thead><tr><th>Cycle day (07:00–06:59)</th><th>Boiler avg</th><th>CHP avg</th><th>Samples</th></tr></thead>
-            <tbody id="historyDailyRows"><tr><td colspan="4">Loading…</td></tr></tbody>
-          </table>
-        </div>
-      </section>
 
     </div>
   </div>
@@ -765,10 +762,7 @@ function switchSection(name){
   document.querySelectorAll('.nav-item').forEach(function(b){ b.classList.toggle('active', b.dataset.section === name); });
 }
 document.querySelectorAll('.nav-item').forEach(function(b){
-  b.addEventListener('click', function(){
-    switchSection(b.dataset.section);
-    if(b.dataset.section === 'history'){ loadHistory(); }
-  });
+  b.addEventListener('click', function(){ switchSection(b.dataset.section); });
 });
 $('topbarLiveChip').addEventListener('click', function(){ switchSection('live'); });
 $('gotoSettingsLink').addEventListener('click', function(){ switchSection('settings'); });
@@ -813,7 +807,7 @@ $('stationSelect').addEventListener('change', function(){
   setLiveStatus('Switching station…', null);
   pollLiveData();
   checkHealth(true);
-  if(document.getElementById('section-history').classList.contains('active')){ loadHistory(); }
+  if(document.getElementById('section-dashboard').classList.contains('active')){ loadHistory(); }
 });
 
 function withStation(baseUrl){
@@ -1575,6 +1569,7 @@ loadAllStationsList();
 loadStations().then(function(){
   connectLive();
   checkHealth(true);
+  loadHistory();
 });
 </script>
 </body>
