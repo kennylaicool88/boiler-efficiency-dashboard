@@ -1316,6 +1316,8 @@ $('addStationBtn').addEventListener('click', function(){
 // ---- History: hourly chart + daily table ----
 var historyLastHourly = [];
 var historyDailyData = [];
+var historyLastRangeSeries = [];
+var historyRangeLabel = '';
 var historySeriesFilter = 'both'; // 'both' | 'boiler' | 'chp'
 var historyChartMode = 'day'; // 'day' | 'range'
 var historyCurrentDay = null;
@@ -1331,9 +1333,8 @@ function updateHistoryLegendUI(){
 
 function redrawHistoryChart(){
   if(historyChartMode==='range'){
-    var from = $('historyFromDate').value, to = $('historyToDate').value;
-    drawHistoryChartRange(historyDailyData, from, to);
-    $('historyStatus').textContent = (from&&to) ? ('Daily averages: '+from+' to '+to) : 'Daily averages';
+    drawHistoryChartRange(historyLastRangeSeries);
+    $('historyStatus').textContent = historyRangeLabel;
   } else {
     drawHistoryChart(historyLastHourly);
     $('historyStatus').textContent = historyCurrentDay ? ('Cycle day: '+historyCurrentDay+' (07:00–06:59, station time)') : '';
@@ -1355,10 +1356,28 @@ function initHistoryRangeDatesIfNeeded(){
   if(historyRangeDatesInit || !historyDailyData.length) return;
   historyRangeDatesInit = true;
   var lastDay = historyDailyData[historyDailyData.length-1].day;
-  var fromIdx = Math.max(0, historyDailyData.length-7);
-  var firstDay = historyDailyData[fromIdx].day;
-  $('historyFromDate').value = firstDay;
+  var firstDay = historyDailyData[0].day;
+  var fromIdx = Math.max(0, historyDailyData.length-3);
+  $('historyFromDate').value = historyDailyData[fromIdx].day;
   $('historyToDate').value = lastDay;
+  $('historyFromDate').min = firstDay; $('historyFromDate').max = lastDay;
+  $('historyToDate').min = firstDay; $('historyToDate').max = lastDay;
+}
+
+function loadHistoryRange(){
+  var from = $('historyFromDate').value, to = $('historyToDate').value;
+  if(!from || !to) return;
+  if(from > to){ $('historyStatus').textContent = '"From" must be before "To".'; return; }
+  $('historyStatus').textContent = 'Loading…';
+  var url = withStation('/api/efficiency-history?days=60&from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to));
+  fetch(url).then(function(r){ return r.json(); }).then(function(data){
+    historyLastRangeSeries = data.hourlySeries || [];
+    historyRangeLabel = 'Hourly trend: '+from+' to '+to;
+    drawHistoryChartRange(historyLastRangeSeries);
+    $('historyStatus').textContent = historyRangeLabel;
+  }).catch(function(err){
+    $('historyStatus').textContent = 'Error: '+err.message;
+  });
 }
 
 function setHistoryMode(mode){
@@ -1366,12 +1385,16 @@ function setHistoryMode(mode){
   $('historyModeDay').classList.toggle('is-active', mode==='day');
   $('historyModeRange').classList.toggle('is-active', mode==='range');
   $('historyRangeControls').style.display = (mode==='range') ? 'flex' : 'none';
-  if(mode==='range'){ initHistoryRangeDatesIfNeeded(); }
-  redrawHistoryChart();
+  if(mode==='range'){
+    initHistoryRangeDatesIfNeeded();
+    loadHistoryRange();
+  } else {
+    redrawHistoryChart();
+  }
 }
 $('historyModeDay').addEventListener('click', function(){ setHistoryMode('day'); });
 $('historyModeRange').addEventListener('click', function(){ setHistoryMode('range'); });
-$('historyRangeApply').addEventListener('click', function(){ redrawHistoryChart(); });
+$('historyRangeApply').addEventListener('click', loadHistoryRange);
 
 function drawHistoryChart(hourly){
   historyLastHourly = hourly;
@@ -1450,15 +1473,12 @@ function drawHistoryChart(hourly){
   svg.innerHTML = svgHtml;
 }
 
-function drawHistoryChartRange(daily, fromStr, toStr){
+function drawHistoryChartRange(series){
   var showBoiler = historySeriesFilter!=='chp';
   var showChp = historySeriesFilter!=='boiler';
   var svg = $('historyChart');
-  var points = (daily||[]).filter(function(d){
-    return (!fromStr || d.day>=fromStr) && (!toStr || d.day<=toStr);
-  });
 
-  if(!points.length){
+  if(!series || !series.length){
     svg.innerHTML = '<text x="380" y="150" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#5F7A8F">No data in this date range</text>';
     return;
   }
@@ -1467,16 +1487,23 @@ function drawHistoryChartRange(daily, fromStr, toStr){
   var padL = 36, padR = 16, padT = 16, padB = 30;
   var plotW = W - padL - padR;
   var plotH = H - padT - padB;
-  var n = points.length;
+  var n = series.length;
 
   function xAt(i){ return n<=1 ? padL+plotW/2 : padL + (plotW * i / (n-1)); }
   function yAt(pct){ return padT + plotH - (plotH * pct / 100); }
 
   var svgHtml = '';
 
-  points.forEach(function(pt,i){
+  // Vertical divider + date label at each cycle-day boundary (hour===7).
+  var dayBoundaries = [];
+  series.forEach(function(pt,i){ if(pt.hour===7) dayBoundaries.push(i); });
+  var labelStep = dayBoundaries.length>14 ? Math.ceil(dayBoundaries.length/14) : 1;
+  dayBoundaries.forEach(function(i,bi){
     var x = xAt(i);
     svgHtml += '<line x1="'+x+'" y1="'+padT+'" x2="'+x+'" y2="'+(H-padB)+'" stroke="#1B3A54" stroke-width="1"/>';
+    if(bi%labelStep===0){
+      svgHtml += '<text x="'+x+'" y="'+(H-padB+16)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#5F7A8F">'+series[i].day.slice(5)+'</text>';
+    }
   });
 
   [0,10,20,30,40,50,60,70,80,90,100].forEach(function(pct){
@@ -1488,17 +1515,10 @@ function drawHistoryChartRange(daily, fromStr, toStr){
 
   svgHtml += '<line x1="'+padL+'" y1="'+(H-padB)+'" x2="'+(W-padR)+'" y2="'+(H-padB)+'" stroke="var(--line)" stroke-width="1"/>';
 
-  var labelStep = n>20 ? 2 : 1;
-  points.forEach(function(pt,i){
-    if(i%labelStep!==0 && i!==n-1) return;
-    var x = xAt(i);
-    svgHtml += '<text x="'+x+'" y="'+(H-padB+16)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#5F7A8F">'+pt.day.slice(5)+'</text>';
-  });
-
   function buildPath(key){
     var d = '';
     var open = false;
-    points.forEach(function(pt,i){
+    series.forEach(function(pt,i){
       var v = pt[key];
       if(v===null || v===undefined){ open=false; return; }
       var x = xAt(i), y = yAt(v);
@@ -1511,24 +1531,28 @@ function drawHistoryChartRange(daily, fromStr, toStr){
   if(showBoiler) svgHtml += '<path d="'+buildPath('boilerEffAvg')+'" fill="none" stroke="var(--steam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
   if(showChp) svgHtml += '<path d="'+buildPath('chpEffAvg')+'" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
 
-  var DODGE_PX = 10, DODGE_OFFSET = 4;
-
-  points.forEach(function(pt,i){
-    var x = xAt(i);
-    var hasBoiler = showBoiler && pt.boilerEffAvg!==null && pt.boilerEffAvg!==undefined;
-    var hasChp = showChp && pt.chpEffAvg!==null && pt.chpEffAvg!==undefined;
-    var label = pt.day;
-    var dxB = 0, dxC = 0;
-    if(hasBoiler && hasChp && Math.abs(yAt(pt.boilerEffAvg)-yAt(pt.chpEffAvg)) < DODGE_PX){
-      dxB = -DODGE_OFFSET; dxC = DODGE_OFFSET;
-    }
-    if(hasBoiler){
-      svgHtml += '<circle cx="'+(x+dxB)+'" cy="'+yAt(pt.boilerEffAvg)+'" r="4" fill="var(--steam)" stroke="var(--bg-panel)" stroke-width="2"><title>'+label+' — Boiler '+pt.boilerEffAvg.toFixed(1)+'% ('+pt.samples+' samples)</title></circle>';
-    }
-    if(hasChp){
-      svgHtml += '<circle cx="'+(x+dxC)+'" cy="'+yAt(pt.chpEffAvg)+'" r="4" fill="var(--ok)" stroke="var(--bg-panel)" stroke-width="2"><title>'+label+' — CHP '+pt.chpEffAvg.toFixed(1)+'% ('+pt.samples+' samples)</title></circle>';
-    }
-  });
+  // Individual hour markers get unreadable past a few days of hourly
+  // points — beyond that, the line alone carries the trend.
+  var showMarkers = n <= 96;
+  if(showMarkers){
+    var DODGE_PX = 10, DODGE_OFFSET = 4;
+    series.forEach(function(pt,i){
+      var x = xAt(i);
+      var hasBoiler = showBoiler && pt.boilerEffAvg!==null && pt.boilerEffAvg!==undefined;
+      var hasChp = showChp && pt.chpEffAvg!==null && pt.chpEffAvg!==undefined;
+      var label = pt.day+' '+pt.hour+':00';
+      var dxB = 0, dxC = 0;
+      if(hasBoiler && hasChp && Math.abs(yAt(pt.boilerEffAvg)-yAt(pt.chpEffAvg)) < DODGE_PX){
+        dxB = -DODGE_OFFSET; dxC = DODGE_OFFSET;
+      }
+      if(hasBoiler){
+        svgHtml += '<circle cx="'+(x+dxB)+'" cy="'+yAt(pt.boilerEffAvg)+'" r="3" fill="var(--steam)" stroke="var(--bg-panel)" stroke-width="1.5"><title>'+label+' — Boiler '+pt.boilerEffAvg.toFixed(1)+'% ('+pt.samples+' samples)</title></circle>';
+      }
+      if(hasChp){
+        svgHtml += '<circle cx="'+(x+dxC)+'" cy="'+yAt(pt.chpEffAvg)+'" r="3" fill="var(--ok)" stroke="var(--bg-panel)" stroke-width="1.5"><title>'+label+' — CHP '+pt.chpEffAvg.toFixed(1)+'% ('+pt.samples+' samples)</title></circle>';
+      }
+    });
+  }
 
   svg.innerHTML = svgHtml;
 }

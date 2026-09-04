@@ -17,12 +17,24 @@ function cycleDayKey(d) {
 function cycleHour(d) {
   return toLocal(d).getUTCHours();
 }
+function enumerateDays(fromStr, toStr) {
+  const days = [];
+  let cur = new Date(fromStr + 'T00:00:00Z');
+  const end = new Date(toStr + 'T00:00:00Z');
+  while (cur <= end) {
+    days.push(cur.toISOString().slice(0, 10));
+    cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
+  }
+  return days;
+}
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
 
   const requestedStation = req.query && req.query.station;
   const requestedDay = req.query && req.query.day; // 'YYYY-MM-DD', optional
+  const requestedFrom = req.query && req.query.from; // 'YYYY-MM-DD', optional (with `to`, requests hourlySeries)
+  const requestedTo = req.query && req.query.to;
   const days = Math.min(60, Math.max(1, parseInt((req.query && req.query.days) || '14', 10) || 14));
 
   let station;
@@ -88,11 +100,44 @@ module.exports = async (req, res) => {
     });
   }
 
+  // Hourly series spanning a multi-day range (Date Range view on the
+  // chart) — every (day, hour) slot between `from` and `to` inclusive, in
+  // chronological order, with nulls where there's no data. Only computed
+  // when both are given, to keep the response lean for single-day callers.
+  let hourlySeries = null;
+  if (requestedFrom && requestedTo) {
+    const bucketMap = {};
+    rows.forEach((r) => {
+      const d = new Date(r.ts);
+      const day = cycleDayKey(d);
+      if (day < requestedFrom || day > requestedTo) return;
+      const key = day + '|' + cycleHour(d);
+      if (!bucketMap[key]) bucketMap[key] = { boilerSum: 0, boilerN: 0, chpSum: 0, chpN: 0 };
+      if (r.boiler_eff !== null && r.boiler_eff !== undefined) { bucketMap[key].boilerSum += r.boiler_eff; bucketMap[key].boilerN++; }
+      if (r.chp_eff !== null && r.chp_eff !== undefined) { bucketMap[key].chpSum += r.chp_eff; bucketMap[key].chpN++; }
+    });
+    hourlySeries = [];
+    enumerateDays(requestedFrom, requestedTo).forEach((day) => {
+      for (let i = 0; i < 24; i++) {
+        const h = (7 + i) % 24;
+        const v = bucketMap[day + '|' + h];
+        hourlySeries.push({
+          day,
+          hour: h,
+          boilerEffAvg: v && v.boilerN ? v.boilerSum / v.boilerN : null,
+          chpEffAvg: v && v.chpN ? v.chpSum / v.chpN : null,
+          samples: v ? Math.max(v.boilerN, v.chpN) : 0,
+        });
+      }
+    });
+  }
+
   res.status(200).json({
     station: station.id,
     stationName: station.name,
     cycleDay: targetDay,
     hourly,
     daily,
+    hourlySeries,
   });
 };
