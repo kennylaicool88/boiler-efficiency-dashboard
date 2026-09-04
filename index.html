@@ -1353,15 +1353,19 @@ $('historyLegendChp').addEventListener('click', function(){
 });
 
 function initHistoryRangeDatesIfNeeded(){
-  if(historyRangeDatesInit || !historyDailyData.length) return;
-  historyRangeDatesInit = true;
+  if(!historyDailyData.length) return;
   var lastDay = historyDailyData[historyDailyData.length-1].day;
   var firstDay = historyDailyData[0].day;
+  // Keep the picker's min/max in sync with whichever station is currently
+  // selected, every time — but only seed a default From/To once, so we
+  // don't clobber a range the user deliberately picked.
+  $('historyFromDate').min = firstDay; $('historyFromDate').max = lastDay;
+  $('historyToDate').min = firstDay; $('historyToDate').max = lastDay;
+  if(historyRangeDatesInit) return;
+  historyRangeDatesInit = true;
   var fromIdx = Math.max(0, historyDailyData.length-3);
   $('historyFromDate').value = historyDailyData[fromIdx].day;
   $('historyToDate').value = lastDay;
-  $('historyFromDate').min = firstDay; $('historyFromDate').max = lastDay;
-  $('historyToDate').min = firstDay; $('historyToDate').max = lastDay;
 }
 
 function loadHistoryRange(){
@@ -1598,6 +1602,7 @@ function loadHistory(day){
     initHistoryRangeDatesIfNeeded();
     renderDailyTable(data.daily || []);
     if(day){ setHistoryMode('day'); } // a specific day was picked (e.g. from the table) — show its hourly detail
+    else if(historyChartMode==='range'){ loadHistoryRange(); } // station switch while in Date Range — refetch for the new station, don't redraw stale data
     else { redrawHistoryChart(); }
   }).catch(function(err){
     $('historyStatus').textContent = 'Error: '+err.message;
