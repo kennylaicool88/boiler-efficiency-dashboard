@@ -1506,6 +1506,18 @@ function drawHistoryChartRange(series){
     }
   });
 
+  // Lighter hour ticks between the day boundaries, thinning as the range
+  // grows so it stays readable rather than turning into a wall of labels.
+  var hourLabelStep = n<=48 ? 3 : (n<=96 ? 6 : (n<=192 ? 12 : 0));
+  if(hourLabelStep>0){
+    series.forEach(function(pt,i){
+      if(pt.hour===7 || pt.hour%hourLabelStep!==0) return;
+      var x = xAt(i);
+      svgHtml += '<line x1="'+x+'" y1="'+padT+'" x2="'+x+'" y2="'+(H-padB)+'" stroke="#1B3A54" stroke-width="1" opacity="0.35"/>';
+      svgHtml += '<text x="'+x+'" y="'+(H-padB+16)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" fill="#4A6272">'+pt.hour+':00</text>';
+    });
+  }
+
   [0,10,20,30,40,50,60,70,80,90,100].forEach(function(pct){
     var y = yAt(pct);
     var isMajor = pct%50===0;
