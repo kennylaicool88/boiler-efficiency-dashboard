@@ -1511,7 +1511,10 @@ function drawHistoryChartRange(series){
   var hourLabelStep = n<=48 ? 3 : (n<=96 ? 6 : (n<=192 ? 12 : 0));
   if(hourLabelStep>0){
     series.forEach(function(pt,i){
-      if(pt.hour===7 || pt.hour%hourLabelStep!==0) return;
+      // hour 6 is always the last hour of a cycle day, immediately next to
+      // the following day's boundary label — skip it so the two don't
+      // collide regardless of the step size.
+      if(pt.hour===7 || pt.hour===6 || pt.hour%hourLabelStep!==0) return;
       var x = xAt(i);
       svgHtml += '<line x1="'+x+'" y1="'+padT+'" x2="'+x+'" y2="'+(H-padB)+'" stroke="#1B3A54" stroke-width="1" opacity="0.35"/>';
       svgHtml += '<text x="'+x+'" y="'+(H-padB+16)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" fill="#4A6272">'+pt.hour+':00</text>';
