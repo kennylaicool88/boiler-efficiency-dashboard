@@ -17,6 +17,15 @@ function cycleDayKey(d) {
 function cycleHour(d) {
   return toLocal(d).getUTCHours();
 }
+// Specific steam consumption (kg steam per kWh generated). Undefined when
+// the turbine isn't generating — excluded from the average rather than
+// counted as 0, since 0 kg/kWh would misleadingly read as "great efficiency"
+// instead of "no data."
+function sscOf(r) {
+  if (r.elec_output === null || r.elec_output === undefined || r.elec_output <= 0) return null;
+  if (r.steam_rate === null || r.steam_rate === undefined) return null;
+  return (r.steam_rate * 1000) / r.elec_output;
+}
 function enumerateDays(fromStr, toStr) {
   const days = [];
   let cur = new Date(fromStr + 'T00:00:00Z');
@@ -84,9 +93,11 @@ module.exports = async (req, res) => {
     const d = new Date(r.ts);
     if (cycleDayKey(d) !== targetDay) return;
     const h = cycleHour(d);
-    if (!hourMap[h]) hourMap[h] = { boilerSum: 0, boilerN: 0, chpSum: 0, chpN: 0 };
+    if (!hourMap[h]) hourMap[h] = { boilerSum: 0, boilerN: 0, chpSum: 0, chpN: 0, sscSum: 0, sscN: 0 };
     if (r.boiler_eff !== null && r.boiler_eff !== undefined) { hourMap[h].boilerSum += r.boiler_eff; hourMap[h].boilerN++; }
     if (r.chp_eff !== null && r.chp_eff !== undefined) { hourMap[h].chpSum += r.chp_eff; hourMap[h].chpN++; }
+    const ssc = sscOf(r);
+    if (ssc !== null) { hourMap[h].sscSum += ssc; hourMap[h].sscN++; }
   });
   const hourly = [];
   for (let i = 0; i < 24; i++) {
@@ -96,6 +107,7 @@ module.exports = async (req, res) => {
       hour: h,
       boilerEffAvg: v && v.boilerN ? v.boilerSum / v.boilerN : null,
       chpEffAvg: v && v.chpN ? v.chpSum / v.chpN : null,
+      sscAvg: v && v.sscN ? v.sscSum / v.sscN : null,
       samples: v ? Math.max(v.boilerN, v.chpN) : 0,
     });
   }
@@ -112,9 +124,11 @@ module.exports = async (req, res) => {
       const day = cycleDayKey(d);
       if (day < requestedFrom || day > requestedTo) return;
       const key = day + '|' + cycleHour(d);
-      if (!bucketMap[key]) bucketMap[key] = { boilerSum: 0, boilerN: 0, chpSum: 0, chpN: 0 };
+      if (!bucketMap[key]) bucketMap[key] = { boilerSum: 0, boilerN: 0, chpSum: 0, chpN: 0, sscSum: 0, sscN: 0 };
       if (r.boiler_eff !== null && r.boiler_eff !== undefined) { bucketMap[key].boilerSum += r.boiler_eff; bucketMap[key].boilerN++; }
       if (r.chp_eff !== null && r.chp_eff !== undefined) { bucketMap[key].chpSum += r.chp_eff; bucketMap[key].chpN++; }
+      const ssc = sscOf(r);
+      if (ssc !== null) { bucketMap[key].sscSum += ssc; bucketMap[key].sscN++; }
     });
     hourlySeries = [];
     enumerateDays(requestedFrom, requestedTo).forEach((day) => {
@@ -126,6 +140,7 @@ module.exports = async (req, res) => {
           hour: h,
           boilerEffAvg: v && v.boilerN ? v.boilerSum / v.boilerN : null,
           chpEffAvg: v && v.chpN ? v.chpSum / v.chpN : null,
+          sscAvg: v && v.sscN ? v.sscSum / v.sscN : null,
           samples: v ? Math.max(v.boilerN, v.chpN) : 0,
         });
       }

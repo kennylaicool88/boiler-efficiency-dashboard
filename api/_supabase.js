@@ -76,7 +76,7 @@ function insertLogRows(rows) {
 
 function listLogRows(stationId, sinceISO) {
   return restRequest(
-    `efficiency_log?station_id=eq.${encodeURIComponent(stationId)}&ts=gte.${encodeURIComponent(sinceISO)}&select=ts,boiler_eff,chp_eff&order=ts.asc`
+    `efficiency_log?station_id=eq.${encodeURIComponent(stationId)}&ts=gte.${encodeURIComponent(sinceISO)}&select=ts,boiler_eff,chp_eff,steam_rate,elec_output&order=ts.asc`
   );
 }
 

@@ -514,6 +514,17 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
         </div>
 
         <div class="panel" style="margin-top:18px;">
+          <div class="panel-head">
+            <span class="dot" style="background:var(--ember);"></span>Specific Steam Consumption
+            <span class="spacer"></span>
+            <span class="unit" id="sscStatus" style="text-transform:none;">kg steam per kWh generated</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <svg id="sscChart" viewBox="0 0 760 220" style="width:100%;min-width:600px;height:auto;"></svg>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:18px;">
           <div class="panel-head"><span class="dot" style="background:var(--steam);"></span>Daily Averages <span class="unit" style="text-transform:none;">— click a day to view its hourly chart above</span></div>
           <table class="settings-table">
             <thead><tr><th>Cycle day (07:00–06:59)</th><th>Boiler avg</th><th>CHP avg</th><th>Samples</th></tr></thead>
@@ -1335,9 +1346,11 @@ function updateHistoryLegendUI(){
 function redrawHistoryChart(){
   if(historyChartMode==='range'){
     drawHistoryChartRange(historyLastRangeSeries);
+    drawSscChartRange(historyLastRangeSeries);
     $('historyStatus').textContent = historyRangeLabel;
   } else {
     drawHistoryChart(historyLastHourly);
+    drawSscChart(historyLastHourly);
     $('historyStatus').textContent = historyCurrentDay ? ('Cycle day: '+historyCurrentDay+' (07:00–06:59, station time)') : '';
   }
 }
@@ -1379,6 +1392,7 @@ function loadHistoryRange(){
     historyLastRangeSeries = data.hourlySeries || [];
     historyRangeLabel = 'Hourly trend: '+from+' to '+to;
     drawHistoryChartRange(historyLastRangeSeries);
+    drawSscChartRange(historyLastRangeSeries);
     $('historyStatus').textContent = historyRangeLabel;
   }).catch(function(err){
     $('historyStatus').textContent = 'Error: '+err.message;
@@ -1571,6 +1585,142 @@ function drawHistoryChartRange(series){
       if(hasChp){
         svgHtml += '<circle cx="'+(x+dxC)+'" cy="'+yAt(pt.chpEffAvg)+'" r="3" fill="var(--ok)" stroke="var(--bg-panel)" stroke-width="1.5"><title>'+label+' — CHP '+pt.chpEffAvg.toFixed(1)+'% ('+pt.samples+' samples)</title></circle>';
       }
+    });
+  }
+
+  svg.innerHTML = svgHtml;
+}
+
+// ---- Specific Steam Consumption chart (kg steam per kWh) ----
+// Separate chart, not a second axis on the efficiency chart above — SSC
+// (kg/kWh) and efficiency (%) are different units on different scales, so
+// combining them into one chart would need a dual y-axis, which visually
+// implies a relationship between the two lines that's just an artifact of
+// how the two axes happen to be scaled.
+function sscYAxisMax(points){
+  var vals = (points||[]).map(function(p){ return p.sscAvg; }).filter(function(v){ return v!==null && v!==undefined && isFinite(v); });
+  if(!vals.length) return 30;
+  var max = Math.max.apply(null, vals);
+  return Math.max(10, Math.ceil(max/5)*5);
+}
+
+function drawSscChart(hourly){
+  var svg = $('sscChart');
+  if(!hourly || !hourly.length){ svg.innerHTML = ''; return; }
+
+  var W=760, H=220, padL=40, padR=16, padT=16, padB=30;
+  var plotW=W-padL-padR, plotH=H-padT-padB;
+  var n = hourly.length || 24;
+  var yMax = sscYAxisMax(hourly);
+
+  function xAt(i){ return padL + (plotW*i/(n-1)); }
+  function yAt(v){ return padT + plotH - (plotH*v/yMax); }
+
+  var svgHtml = '';
+
+  hourly.forEach(function(pt,i){
+    var x = xAt(i);
+    svgHtml += '<line x1="'+x+'" y1="'+padT+'" x2="'+x+'" y2="'+(H-padB)+'" stroke="#1B3A54" stroke-width="1"/>';
+  });
+
+  for(var t=0;t<=5;t++){
+    var val = Math.round(yMax*t/5);
+    var y = yAt(val);
+    svgHtml += '<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="#1B3A54" stroke-width="1" opacity="'+(t===0?'1':'0.5')+'"/>';
+    svgHtml += '<text x="'+(padL-8)+'" y="'+(y+4)+'" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#5F7A8F">'+val+'</text>';
+  }
+
+  svgHtml += '<line x1="'+padL+'" y1="'+(H-padB)+'" x2="'+(W-padR)+'" y2="'+(H-padB)+'" stroke="var(--line)" stroke-width="1"/>';
+
+  hourly.forEach(function(pt,i){
+    var x = xAt(i);
+    svgHtml += '<text x="'+x+'" y="'+(H-padB+16)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#5F7A8F">'+pt.hour+':00</text>';
+  });
+
+  var d='', open=false;
+  hourly.forEach(function(pt,i){
+    var v = pt.sscAvg;
+    if(v===null || v===undefined){ open=false; return; }
+    var x=xAt(i), y=yAt(v);
+    d += (open?'L':'M')+x+' '+y+' ';
+    open = true;
+  });
+  svgHtml += '<path d="'+d+'" fill="none" stroke="var(--ember)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+
+  hourly.forEach(function(pt,i){
+    var v = pt.sscAvg;
+    if(v===null || v===undefined) return;
+    var x=xAt(i), y=yAt(v);
+    svgHtml += '<circle cx="'+x+'" cy="'+y+'" r="4" fill="var(--ember)" stroke="var(--bg-panel)" stroke-width="2"><title>'+pt.hour+':00 — '+v.toFixed(1)+' kg/kWh</title></circle>';
+  });
+
+  svg.innerHTML = svgHtml;
+}
+
+function drawSscChartRange(series){
+  var svg = $('sscChart');
+  if(!series || !series.length){
+    svg.innerHTML = '<text x="380" y="110" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#5F7A8F">No data in this date range</text>';
+    return;
+  }
+
+  var W=760, H=220, padL=40, padR=16, padT=16, padB=30;
+  var plotW=W-padL-padR, plotH=H-padT-padB;
+  var n = series.length;
+  var yMax = sscYAxisMax(series);
+
+  function xAt(i){ return n<=1 ? padL+plotW/2 : padL + (plotW*i/(n-1)); }
+  function yAt(v){ return padT + plotH - (plotH*v/yMax); }
+
+  var svgHtml = '';
+
+  var dayBoundaries = [];
+  series.forEach(function(pt,i){ if(pt.hour===7) dayBoundaries.push(i); });
+  var labelStep = dayBoundaries.length>14 ? Math.ceil(dayBoundaries.length/14) : 1;
+  dayBoundaries.forEach(function(i,bi){
+    var x = xAt(i);
+    svgHtml += '<line x1="'+x+'" y1="'+padT+'" x2="'+x+'" y2="'+(H-padB)+'" stroke="#1B3A54" stroke-width="1"/>';
+    if(bi%labelStep===0){
+      svgHtml += '<text x="'+x+'" y="'+(H-padB+16)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#5F7A8F">'+series[i].day.slice(5)+'</text>';
+    }
+  });
+
+  var hourLabelStep = n<=48 ? 3 : (n<=96 ? 6 : (n<=192 ? 12 : 0));
+  if(hourLabelStep>0){
+    series.forEach(function(pt,i){
+      if(pt.hour===7 || pt.hour===6 || pt.hour%hourLabelStep!==0) return;
+      var x = xAt(i);
+      svgHtml += '<line x1="'+x+'" y1="'+padT+'" x2="'+x+'" y2="'+(H-padB)+'" stroke="#1B3A54" stroke-width="1" opacity="0.35"/>';
+      svgHtml += '<text x="'+x+'" y="'+(H-padB+16)+'" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" fill="#4A6272">'+pt.hour+':00</text>';
+    });
+  }
+
+  for(var t=0;t<=5;t++){
+    var val = Math.round(yMax*t/5);
+    var y = yAt(val);
+    svgHtml += '<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="#1B3A54" stroke-width="1" opacity="'+(t===0?'1':'0.5')+'"/>';
+    svgHtml += '<text x="'+(padL-8)+'" y="'+(y+4)+'" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#5F7A8F">'+val+'</text>';
+  }
+
+  svgHtml += '<line x1="'+padL+'" y1="'+(H-padB)+'" x2="'+(W-padR)+'" y2="'+(H-padB)+'" stroke="var(--line)" stroke-width="1"/>';
+
+  var d='', open=false;
+  series.forEach(function(pt,i){
+    var v = pt.sscAvg;
+    if(v===null || v===undefined){ open=false; return; }
+    var x=xAt(i), y=yAt(v);
+    d += (open?'L':'M')+x+' '+y+' ';
+    open = true;
+  });
+  svgHtml += '<path d="'+d+'" fill="none" stroke="var(--ember)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+
+  var showMarkers = n<=96;
+  if(showMarkers){
+    series.forEach(function(pt,i){
+      var v = pt.sscAvg;
+      if(v===null || v===undefined) return;
+      var x=xAt(i), y=yAt(v);
+      svgHtml += '<circle cx="'+x+'" cy="'+y+'" r="3" fill="var(--ember)" stroke="var(--bg-panel)" stroke-width="1.5"><title>'+pt.day+' '+pt.hour+':00 — '+v.toFixed(1)+' kg/kWh</title></circle>';
     });
   }
 
