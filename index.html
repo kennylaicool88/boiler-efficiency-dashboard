@@ -1367,16 +1367,15 @@ $('historyLegendChp').addEventListener('click', function(){
 });
 
 function initHistoryRangeDatesIfNeeded(){
-  if(!historyDailyData.length) return;
-  var lastDay = historyDailyData[historyDailyData.length-1].day;
-  var firstDay = historyDailyData[0].day;
-  // Keep the picker's min/max in sync with whichever station is currently
-  // selected, every time — but only seed a default From/To once, so we
-  // don't clobber a range the user deliberately picked.
-  $('historyFromDate').min = firstDay; $('historyFromDate').max = lastDay;
-  $('historyToDate').min = firstDay; $('historyToDate').max = lastDay;
-  if(historyRangeDatesInit) return;
+  // No min/max on the pickers on purpose: the last "cycle day" with a
+  // logged row lags behind the wall-clock calendar date between midnight
+  // and 07:00 (mill time), since that day's cycle hasn't started yet —
+  // capping max at it made the calendar disable "today" for part of the
+  // night. Picking a date with no data just falls through to the chart's
+  // existing "No data in this date range" message instead.
+  if(historyRangeDatesInit || !historyDailyData.length) return;
   historyRangeDatesInit = true;
+  var lastDay = historyDailyData[historyDailyData.length-1].day;
   var fromIdx = Math.max(0, historyDailyData.length-3);
   $('historyFromDate').value = historyDailyData[fromIdx].day;
   $('historyToDate').value = lastDay;
