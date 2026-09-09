@@ -74,25 +74,38 @@ function insertLogRows(rows) {
   });
 }
 
-// Supabase's PostgREST caps a response at 1000 rows by default. Sorted
-// ts.asc without an explicit limit, that silently truncates to the OLDEST
-// 1000 rows and drops everything newer once a station's logged history
-// grows past that — at a 5-minute cadence that's under 4 days. 20000
-// comfortably covers the largest window this app requests (60 days at
-// 5-minute intervals for one station is ~17280 rows).
-const LOG_ROWS_LIMIT = 20000;
+// Supabase's PostgREST enforces its own server-side max-rows-per-request
+// cap (observed at 1000) regardless of a client-supplied `limit` — asking
+// for more in one request doesn't get more back. Sorted ts.asc, that
+// silently returns only the OLDEST rows within the cap and drops
+// everything newer once a station's logged history within the requested
+// window passes it — at a 5-minute cadence that's under 4 days. Paginate
+// with Range headers instead, looping until a page comes back short.
+const PAGE_SIZE = 1000;
+async function restRequestAllPages(path) {
+  const all = [];
+  let offset = 0;
+  for (;;) {
+    const page = await restRequest(path, { headers: { Range: `${offset}-${offset + PAGE_SIZE - 1}` } });
+    if (!page || !page.length) break;
+    all.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+  return all;
+}
 
 function listLogRows(stationId, sinceISO) {
-  return restRequest(
-    `efficiency_log?station_id=eq.${encodeURIComponent(stationId)}&ts=gte.${encodeURIComponent(sinceISO)}&select=ts,boiler_eff,chp_eff,steam_rate,elec_output&order=ts.asc&limit=${LOG_ROWS_LIMIT}`
+  return restRequestAllPages(
+    `efficiency_log?station_id=eq.${encodeURIComponent(stationId)}&ts=gte.${encodeURIComponent(sinceISO)}&select=ts,boiler_eff,chp_eff,steam_rate,elec_output&order=ts.asc`
   );
 }
 
 // Full rows (all logged fields) for the Daily Report, which needs the raw
 // live values behind the efficiency numbers, not just the two averages.
 function listLogRowsFull(stationId, sinceISO) {
-  return restRequest(
-    `efficiency_log?station_id=eq.${encodeURIComponent(stationId)}&ts=gte.${encodeURIComponent(sinceISO)}&select=ts,boiler_eff,chp_eff,steam_rate,steam_pressure,feed_temp,elec_output,exhaust_pressure,fuel_rate&order=ts.asc&limit=${LOG_ROWS_LIMIT}`
+  return restRequestAllPages(
+    `efficiency_log?station_id=eq.${encodeURIComponent(stationId)}&ts=gte.${encodeURIComponent(sinceISO)}&select=ts,boiler_eff,chp_eff,steam_rate,steam_pressure,feed_temp,elec_output,exhaust_pressure,fuel_rate&order=ts.asc`
   );
 }
 
