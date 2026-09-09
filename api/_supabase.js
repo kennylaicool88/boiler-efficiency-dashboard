@@ -74,9 +74,17 @@ function insertLogRows(rows) {
   });
 }
 
+// Supabase's PostgREST caps a response at 1000 rows by default. Sorted
+// ts.asc without an explicit limit, that silently truncates to the OLDEST
+// 1000 rows and drops everything newer once a station's logged history
+// grows past that — at a 5-minute cadence that's under 4 days. 20000
+// comfortably covers the largest window this app requests (60 days at
+// 5-minute intervals for one station is ~17280 rows).
+const LOG_ROWS_LIMIT = 20000;
+
 function listLogRows(stationId, sinceISO) {
   return restRequest(
-    `efficiency_log?station_id=eq.${encodeURIComponent(stationId)}&ts=gte.${encodeURIComponent(sinceISO)}&select=ts,boiler_eff,chp_eff,steam_rate,elec_output&order=ts.asc`
+    `efficiency_log?station_id=eq.${encodeURIComponent(stationId)}&ts=gte.${encodeURIComponent(sinceISO)}&select=ts,boiler_eff,chp_eff,steam_rate,elec_output&order=ts.asc&limit=${LOG_ROWS_LIMIT}`
   );
 }
 
@@ -84,7 +92,7 @@ function listLogRows(stationId, sinceISO) {
 // live values behind the efficiency numbers, not just the two averages.
 function listLogRowsFull(stationId, sinceISO) {
   return restRequest(
-    `efficiency_log?station_id=eq.${encodeURIComponent(stationId)}&ts=gte.${encodeURIComponent(sinceISO)}&select=ts,boiler_eff,chp_eff,steam_rate,steam_pressure,feed_temp,elec_output,exhaust_pressure,fuel_rate&order=ts.asc`
+    `efficiency_log?station_id=eq.${encodeURIComponent(stationId)}&ts=gte.${encodeURIComponent(sinceISO)}&select=ts,boiler_eff,chp_eff,steam_rate,steam_pressure,feed_temp,elec_output,exhaust_pressure,fuel_rate&order=ts.asc&limit=${LOG_ROWS_LIMIT}`
   );
 }
 
