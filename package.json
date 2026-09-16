@@ -4,6 +4,7 @@
   "private": true,
   "description": "Boiler efficiency dashboard with a Vercel-hosted InfluxDB live data API.",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0",
     "@influxdata/influxdb-client": "^1.35.0"
   }
 }

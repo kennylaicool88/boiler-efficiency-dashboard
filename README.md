@@ -19,6 +19,13 @@ hourly/daily history can be charted and traced over time.
   its live fields as JSON. Polled by `index.html`; the InfluxDB token
   never reaches the browser.
 - `api/health.js` — connection/status check for a station.
+- `api/chat.js` — powers the "Dashboard Assistant" chat widget. Takes the
+  conversation plus a snapshot of the selected station's current readings
+  (sent by the browser), adds the last 14 days of daily-averaged
+  efficiency/steam/fuel/electrical numbers from `efficiency_log` (so it can
+  answer trend questions, not just "right now" ones), calls the Anthropic
+  API server-side, and returns the reply. The Anthropic API key never
+  reaches the browser.
 - `api/stations.js` — `GET` lists stations; `POST` adds/updates a
   station (field mapping + Fuel Profile), used by the Add/Edit form.
 - `api/log-snapshot.js` — computes and logs one efficiency snapshot per
@@ -76,8 +83,12 @@ Project → **Settings → Environment Variables**:
 | `SUPABASE_URL` | `https://xxxxx.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → service_role secret key |
 | `LOG_SNAPSHOT_SECRET` | any random string — shared with the `x-log-secret` header value configured in cron-job.org |
+| `ANTHROPIC_API_KEY` | an Anthropic API key, used by `api/chat.js` to power the dashboard's chat assistant |
+| `ANTHROPIC_MODEL` | optional — overrides the default chat model (`claude-sonnet-5`) |
 
-All read server-side only — never sent to the browser or committed.
+All read server-side only — never sent to the browser or committed. If
+`ANTHROPIC_API_KEY` isn't set, the dashboard still works — the chat widget
+just shows a "not configured" error when opened.
 
 ### 2. Set up the Supabase tables (one-time)
 

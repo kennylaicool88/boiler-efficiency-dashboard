@@ -370,6 +370,49 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
   #dailyReportPrintArea,#dailyReportPrintArea *{visibility:visible;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   #dailyReportPrintArea{display:block;position:absolute;left:0;top:0;width:100%;background:#fff;color:var(--dr-ink);padding:0;}
 }
+
+/* ---- AI chat widget ---- */
+.chat-fab{
+  position:fixed;right:20px;bottom:20px;z-index:500;width:52px;height:52px;border-radius:50%;
+  background:var(--steam);color:#082330;border:none;cursor:pointer;font-size:22px;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.35);
+}
+.chat-fab:hover{filter:brightness(1.08);}
+.chat-panel{
+  position:fixed;right:20px;bottom:82px;z-index:500;width:340px;max-width:calc(100vw - 32px);
+  height:460px;max-height:calc(100vh - 120px);background:var(--bg-panel);border:1px solid var(--line-soft);
+  border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.45);display:none;flex-direction:column;overflow:hidden;
+}
+.chat-panel.open{display:flex;}
+.chat-panel-header{
+  padding:12px 14px;border-bottom:1px solid var(--line-soft);background:var(--bg-panel-alt);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.chat-panel-header .t{font-weight:700;color:var(--text-hi);font-size:13.5px;}
+.chat-panel-header .sub{font-size:10.5px;color:var(--text-low);margin-top:1px;}
+.chat-close-btn{background:none;border:none;color:var(--text-low);font-size:18px;cursor:pointer;line-height:1;padding:2px 4px;}
+.chat-close-btn:hover{color:var(--text-hi);}
+.chat-messages{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+.chat-msg{max-width:88%;font-size:12.5px;line-height:1.5;padding:8px 10px;border-radius:8px;white-space:pre-wrap;word-wrap:break-word;}
+.chat-msg-user{align-self:flex-end;background:var(--steam);color:#082330;border-bottom-right-radius:2px;}
+.chat-msg-assistant{align-self:flex-start;background:var(--bg-panel-alt);color:var(--text-hi);border:1px solid var(--line-soft);border-bottom-left-radius:2px;}
+.chat-msg-pending{color:var(--text-low);font-style:italic;}
+.chat-msg-error{align-self:flex-start;background:rgba(214,69,69,.12);color:var(--bad);border:1px solid rgba(214,69,69,.4);}
+.chat-empty{color:var(--text-low);font-size:12px;padding:6px 2px;}
+.chat-input-row{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line-soft);flex-shrink:0;}
+.chat-input-row textarea{
+  flex:1;resize:none;background:var(--bg-panel-alt);border:1px solid var(--line);color:var(--text-hi);
+  border-radius:6px;padding:8px 9px;font-family:inherit;font-size:12.5px;line-height:1.4;height:38px;
+}
+.chat-send-btn{
+  background:var(--steam);color:#082330;border:none;border-radius:6px;padding:0 14px;font-weight:700;
+  font-size:12.5px;cursor:pointer;flex-shrink:0;
+}
+.chat-send-btn:disabled{opacity:.5;cursor:default;}
+@media (max-width:520px){
+  .chat-panel{right:16px;left:16px;width:auto;bottom:78px;}
+  .chat-fab{right:16px;bottom:16px;}
+}
 </style>
 </head>
 <body>
@@ -775,6 +818,24 @@ hr.thin{border:none;border-top:1px solid var(--line-soft);margin:12px 0;}
 
 <div id="dailyReportPrintArea"></div>
 
+<button class="chat-fab" id="chatFabBtn" type="button" title="Ask the dashboard assistant" aria-label="Ask the dashboard assistant">💬</button>
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-panel-header">
+    <div>
+      <div class="t">Dashboard Assistant</div>
+      <div class="sub">Sees this station's current readings</div>
+    </div>
+    <button class="chat-close-btn" id="chatCloseBtn" type="button" aria-label="Close">✕</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-empty" id="chatEmptyHint">Ask about the current efficiency numbers, e.g. "why is boiler efficiency low right now?"</div>
+  </div>
+  <div class="chat-input-row">
+    <textarea id="chatInput" placeholder="Ask a question…"></textarea>
+    <button class="chat-send-btn" id="chatSendBtn" type="button">Send</button>
+  </div>
+</div>
+
 <script>
 function $(id){return document.getElementById(id);}
 function fmt(n,d){ if(!isFinite(n)) return '–'; return n.toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d}); }
@@ -985,6 +1046,14 @@ function recalc(){
     chpNote = 'Overall CHP efficiency is below boiler efficiency — check that electrical output and process pressure figures reflect actual operating conditions.';
   }
   $('chp-note').innerHTML = chpNote;
+
+  window.__lastMetrics = {
+    steamRate: steamRate, steamPressure: steamPressure, feedTemp: feedTemp,
+    elecOutput: elecOutput, exhaustPressure: exhaustPressure, ffb: ffb,
+    fuelRateT: fuelRateT, gcvWet: gcvWet,
+    boilerEfficiencyPct: directEff, chpEfficiencyPct: chpEff,
+    turbineEfficiencyPct: turbineEff, specificSteamConsumption: ssc
+  };
 }
 
 var allInputs = document.querySelectorAll('input');
@@ -1891,6 +1960,94 @@ function generateDailyReport(){
   });
 }
 $('dailyReportBtn').addEventListener('click', generateDailyReport);
+
+// ---- AI chat widget ----
+var chatHistory = [];
+var chatBusy = false;
+
+function gatherChatContext(){
+  var m = window.__lastMetrics || {};
+  var station = STATIONS && STATIONS.filter(function(x){ return x.id === currentStation; })[0];
+  return {
+    stationName: station ? station.name : (currentStation || null),
+    timestamp: new Date().toLocaleString(),
+    live: {
+      'Steam output': fmt(m.steamRate,1)+' t/hr',
+      'Steam pressure': fmt(m.steamPressure,1)+' bar g',
+      'Feedwater temperature': fmt(m.feedTemp,1)+' °C',
+      'Turbine electrical output': fmt(m.elecOutput,0)+' kW',
+      'Turbine exhaust (BPV) pressure': fmt(m.exhaustPressure,2)+' bar g',
+      'FFB throughput': fmt(m.ffb,1)+' t/hr'
+    },
+    computed: {
+      'Boiler efficiency (direct method)': fmt(m.boilerEfficiencyPct,1)+'%',
+      'Overall CHP efficiency': fmt(m.chpEfficiencyPct,1)+'%',
+      'Turbine + generator conversion efficiency': fmt(m.turbineEfficiencyPct,1)+'%',
+      'Specific steam consumption': fmt(m.specificSteamConsumption,2)+' kg/kWh',
+      'Total fuel rate': fmt(m.fuelRateT,2)+' t/hr',
+      'Blended fuel GCV as-fired': fmt(m.gcvWet,0)+' kJ/kg'
+    }
+  };
+}
+
+function appendChatMessage(role, text){
+  if($('chatEmptyHint')) $('chatEmptyHint').remove();
+  var div = document.createElement('div');
+  div.className = 'chat-msg chat-msg-' + role;
+  div.textContent = text;
+  $('chatMessages').appendChild(div);
+  $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+  return div;
+}
+
+function sendChatMessage(){
+  if(chatBusy) return;
+  var input = $('chatInput');
+  var text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  appendChatMessage('user', text);
+  chatHistory.push({ role: 'user', content: text });
+  chatHistory = chatHistory.slice(-20);
+  chatBusy = true;
+  $('chatSendBtn').disabled = true;
+  var pending = appendChatMessage('assistant', 'Thinking…');
+  pending.classList.add('chat-msg-pending');
+
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: chatHistory, context: gatherChatContext(), station: currentStation })
+  }).then(function(r){
+    return r.json().then(function(data){ return { ok: r.ok, data: data }; });
+  }).then(function(res){
+    pending.remove();
+    if(!res.ok){
+      appendChatMessage('assistant error', 'Error: '+((res.data && res.data.error) || 'Failed to reach the AI assistant.')).className = 'chat-msg chat-msg-error';
+      return;
+    }
+    var reply = (res.data && res.data.reply) || '(no response)';
+    appendChatMessage('assistant', reply);
+    chatHistory.push({ role: 'assistant', content: reply });
+  }).catch(function(err){
+    pending.remove();
+    appendChatMessage('assistant error', 'Error: '+err.message).className = 'chat-msg chat-msg-error';
+  }).then(function(){
+    chatBusy = false;
+    $('chatSendBtn').disabled = false;
+    input.focus();
+  });
+}
+
+$('chatFabBtn').addEventListener('click', function(){
+  $('chatPanel').classList.toggle('open');
+  if($('chatPanel').classList.contains('open')) $('chatInput').focus();
+});
+$('chatCloseBtn').addEventListener('click', function(){ $('chatPanel').classList.remove('open'); });
+$('chatSendBtn').addEventListener('click', sendChatMessage);
+$('chatInput').addEventListener('keydown', function(e){
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendChatMessage(); }
+});
 
 loadAllStationsList();
 loadStations().then(function(){
