@@ -889,6 +889,7 @@ $('stationSelect').addEventListener('change', function(){
   var s = STATIONS.filter(function(x){ return x.id === currentStation; })[0];
   $('stationNameDisplay').textContent = s ? s.name : currentStation;
   setLiveStatus('Switching station…', null);
+  resetDashboardInputs();
   pollLiveData();
   checkHealth(true);
   if(document.getElementById('section-dashboard').classList.contains('active')){ loadHistory(); }
@@ -1064,6 +1065,16 @@ recalc();
 var liveTimer = null;
 var liveConnected = false;
 var LIVE_FIELD_IDS = ['steamRate','steamPressure','feedTemp','elecOutput','exhaustPressure'];
+var DASHBOARD_FUEL_FIELD_IDS = ['ffb','fibrePct','fibreGcv','shellPct','shellGcv','efbPct','efbGcv'];
+
+// Clears every per-station dashboard input before switching stations, so a
+// field the new station doesn't report (a manual field with no default, or
+// a live tag with no current reading) can't keep showing the previously
+// selected station's leftover value.
+function resetDashboardInputs(){
+  LIVE_FIELD_IDS.concat(DASHBOARD_FUEL_FIELD_IDS).forEach(function(id){ if($(id)) $(id).value = ''; });
+  recalc();
+}
 
 function setLiveStatus(msg, ok){
   $('liveStatus').textContent = msg;
@@ -1384,6 +1395,7 @@ $('addStationBtn').addEventListener('click', function(){
         currentStation = savedId;
         var s = STATIONS.filter(function(x){ return x.id === savedId; })[0];
         $('stationNameDisplay').textContent = s ? s.name : savedId;
+        resetDashboardInputs();
         pollLiveData();
         checkHealth(true);
       }
