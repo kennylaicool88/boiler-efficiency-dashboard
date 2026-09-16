@@ -1,5 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
-const { getStationOrDefault, listLogRowsFull } = require('./_supabase');
+const { listStations, listLogRowsFull } = require('./_supabase');
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
 const MAX_HISTORY_MESSAGES = 40;
@@ -22,16 +22,7 @@ function fmtOrDash(v, d) {
   return v === null || v === undefined || !isFinite(v) ? '–' : v.toFixed(d);
 }
 
-// Daily averages (boiler/CHP efficiency, steam rate, fuel rate, electrical
-// output) for the trailing DAILY_HISTORY_DAYS days, so the chat assistant
-// can answer trend questions ("how did I do last week?") instead of only
-// seeing the current live snapshot. Best-effort — callers should tolerate
-// this throwing (e.g. Supabase not configured, unknown station) and just
-// proceed without history.
-async function fetchDailyHistory(stationId) {
-  const since = new Date(Date.now() - DAILY_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const rows = await listLogRowsFull(stationId, since);
-
+function aggregateDaily(rows) {
   const dayMap = {};
   rows.forEach((r) => {
     const key = cycleDayKey(new Date(r.ts));
@@ -46,7 +37,6 @@ async function fetchDailyHistory(stationId) {
     if (r.fuel_rate !== null && r.fuel_rate !== undefined) { d.fuelSum += r.fuel_rate; d.fuelN++; }
     if (r.elec_output !== null && r.elec_output !== undefined) { d.elecSum += r.elec_output; d.elecN++; }
   });
-
   return Object.keys(dayMap).sort().map((day) => {
     const d = dayMap[day];
     return {
@@ -61,15 +51,46 @@ async function fetchDailyHistory(stationId) {
   });
 }
 
-function buildSystemPrompt(ctx, dailyHistory) {
+// Trailing DAILY_HISTORY_DAYS days of daily averages, plus the single most
+// recent logged row (used as a "recent reading" for stations other than the
+// one the browser is actively viewing — accurate to within one logging
+// cycle, ~5 min, with no extra live InfluxDB query needed).
+async function fetchStationLog(stationId) {
+  const since = new Date(Date.now() - DAILY_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const rows = await listLogRowsFull(stationId, since); // ascending by ts
+  return {
+    dailyHistory: aggregateDaily(rows),
+    latestRow: rows.length ? rows[rows.length - 1] : null,
+  };
+}
+
+function dailyHistoryLines(dailyHistory) {
+  if (!dailyHistory || !dailyHistory.length) return ['No logged daily history is available yet.'];
+  return dailyHistory.map(
+    (d) =>
+      `- ${d.day}: boiler ${fmtOrDash(d.boilerEffAvg, 1)}%, CHP ${fmtOrDash(d.chpEffAvg, 1)}%, steam ${fmtOrDash(d.steamRateAvg, 1)} t/hr, fuel ${fmtOrDash(d.fuelRateAvg, 2)} t/hr, elec ${fmtOrDash(d.elecOutputAvg, 0)} kW (${d.samples} samples)`
+  );
+}
+
+function latestRowLine(row) {
+  if (!row) return 'No logged readings yet for this station.';
+  const when = new Date(row.ts).toLocaleString();
+  return (
+    `Most recent logged snapshot (${when}): boiler eff ${fmtOrDash(row.boiler_eff, 1)}%, CHP eff ${fmtOrDash(row.chp_eff, 1)}%, ` +
+    `steam ${fmtOrDash(row.steam_rate, 1)} t/hr, steam pressure ${fmtOrDash(row.steam_pressure, 1)} bar g, feedwater temp ${fmtOrDash(row.feed_temp, 1)} °C, ` +
+    `elec output ${fmtOrDash(row.elec_output, 0)} kW, exhaust pressure ${fmtOrDash(row.exhaust_pressure, 2)} bar g, fuel rate ${fmtOrDash(row.fuel_rate, 2)} t/hr.`
+  );
+}
+
+function buildSystemPrompt(ctx, selectedStationName, selectedDailyHistory, otherStations) {
   const lines = [
-    'You are an assistant embedded in a boiler and CHP (combined heat & power) efficiency dashboard for a fibre/shell-fired boiler at a palm oil mill.',
-    'Help the user interpret the numbers on their dashboard, answer questions about boiler/CHP efficiency, steam rate, fuel mix, and reason about likely causes of low efficiency or trends over recent days.',
+    'You are an assistant embedded in a boiler and CHP (combined heat & power) efficiency dashboard that monitors one or more fibre/shell-fired boilers at palm oil mills.',
+    'Help the user interpret the numbers on their dashboard, answer questions about boiler/CHP efficiency, steam rate, fuel mix, trends over recent days, and — when more than one station is given below — compare stations against each other.',
     "Treat the data below as ground truth. Don't invent sensor values or history that aren't given, and say so if something you'd need isn't in the data provided.",
     'Keep answers concise and practical — a few sentences, or a short list when that helps.',
   ];
 
-  if (ctx.stationName) lines.push(`\nStation: ${ctx.stationName}`);
+  lines.push(`\n## Currently viewed station: ${selectedStationName || 'unknown'}`);
   if (ctx.timestamp) lines.push(`As of: ${ctx.timestamp}`);
 
   if (ctx.live && typeof ctx.live === 'object') {
@@ -88,15 +109,17 @@ function buildSystemPrompt(ctx, dailyHistory) {
     }
   }
 
-  if (dailyHistory && dailyHistory.length) {
-    lines.push(`\nDaily averages, last ${dailyHistory.length} day(s) with logged data (each "day" is a 07:00–06:59:59 mill cycle day, most recent last):`);
-    dailyHistory.forEach((d) => {
-      lines.push(
-        `- ${d.day}: boiler ${fmtOrDash(d.boilerEffAvg, 1)}%, CHP ${fmtOrDash(d.chpEffAvg, 1)}%, steam ${fmtOrDash(d.steamRateAvg, 1)} t/hr, fuel ${fmtOrDash(d.fuelRateAvg, 2)} t/hr, elec ${fmtOrDash(d.elecOutputAvg, 0)} kW (${d.samples} samples)`
-      );
+  lines.push(`\nDaily averages, last ${selectedDailyHistory.length} day(s) with logged data (each "day" is a 07:00–06:59:59 mill cycle day, most recent last):`);
+  lines.push(...dailyHistoryLines(selectedDailyHistory));
+
+  if (otherStations && otherStations.length) {
+    lines.push('\n## Other stations available for comparison:');
+    otherStations.forEach((s) => {
+      lines.push(`\n### ${s.name}`);
+      lines.push(latestRowLine(s.latestRow));
+      lines.push(`Daily averages, last ${s.dailyHistory.length} day(s):`);
+      lines.push(...dailyHistoryLines(s.dailyHistory));
     });
-  } else {
-    lines.push('\nNo logged daily history is available yet for this station — you can only speak to the current live readings above.');
   }
 
   return lines.join('\n');
@@ -133,13 +156,32 @@ module.exports = async (req, res) => {
     return;
   }
 
-  let dailyHistory = [];
+  let stations = [];
   try {
-    const station = await getStationOrDefault(requestedStation);
-    if (station) dailyHistory = await fetchDailyHistory(station.id);
+    stations = await listStations();
   } catch (err) {
-    console.error('chat: failed to load daily history, continuing without it', err);
+    console.error('chat: failed to list stations, continuing with just the viewed station', err);
   }
+
+  const selected = stations.find((s) => s.id === requestedStation) || stations[0] || null;
+  const selectedStationName = context.stationName || (selected && selected.name) || requestedStation || null;
+
+  let selectedDailyHistory = [];
+  let otherStations = [];
+  const results = await Promise.all(
+    stations.map(async (s) => {
+      try {
+        const { dailyHistory, latestRow } = await fetchStationLog(s.id);
+        return { id: s.id, name: s.name, dailyHistory, latestRow };
+      } catch (err) {
+        console.error(`chat: failed to load history for station ${s.id}, continuing without it`, err);
+        return { id: s.id, name: s.name, dailyHistory: [], latestRow: null };
+      }
+    })
+  );
+  const selectedId = selected ? selected.id : null;
+  selectedDailyHistory = results.find((r) => r.id === selectedId)?.dailyHistory || [];
+  otherStations = results.filter((r) => r.id !== selectedId);
 
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
@@ -148,7 +190,7 @@ module.exports = async (req, res) => {
       model: MODEL,
       max_tokens: 1536,
       output_config: { effort: 'low' },
-      system: buildSystemPrompt(context, dailyHistory),
+      system: buildSystemPrompt(context, selectedStationName, selectedDailyHistory, otherStations),
       messages,
     });
 

@@ -22,10 +22,12 @@ hourly/daily history can be charted and traced over time.
 - `api/chat.js` — powers the "Dashboard Assistant" chat widget. Takes the
   conversation plus a snapshot of the selected station's current readings
   (sent by the browser), adds the last 14 days of daily-averaged
-  efficiency/steam/fuel/electrical numbers from `efficiency_log` (so it can
-  answer trend questions, not just "right now" ones), calls the Anthropic
-  API server-side, and returns the reply. The Anthropic API key never
-  reaches the browser.
+  efficiency/steam/fuel/electrical numbers from `efficiency_log` for every
+  station (not just the selected one — each other station gets its most
+  recent logged snapshot plus its own 14-day history), so it can answer
+  trend questions and cross-station comparisons, not just "right now for
+  this station" ones. Calls the Anthropic API server-side and returns the
+  reply — the Anthropic API key never reaches the browser.
 - `api/stations.js` — `GET` lists stations; `POST` adds/updates a
   station (field mapping + Fuel Profile), used by the Add/Edit form.
 - `api/log-snapshot.js` — computes and logs one efficiency snapshot per
